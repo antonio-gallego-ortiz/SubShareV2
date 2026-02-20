@@ -18,7 +18,135 @@ const detailedMembers: Member[] = [];
 // Initialize with empty renewal history - will be loaded from database
 const renewalHistory: any[] = [];
 
+const translations = {
+  en: {
+    search: 'Search',
+    dashboard: 'Dashboard',
+    subscriptions: 'Subscriptions',
+    settings: 'Settings',
+    netflixDetails: 'Netflix Details',
+    netflixFamily: 'Netflix Family Plan',
+    month: 'month',
+    activeSubscription: 'Active Subscription',
+    editPlan: 'Edit Plan',
+    nextRenewal: 'Next Renewal',
+    paymentMethod: 'Payment Method',
+    autoRenewal: 'Auto-renewal',
+    groupSize: 'Group Size',
+    members: 'Members',
+    sharedAccountCredentials: 'Shared Account Credentials',
+    showDetails: 'Show Details',
+    hideDetails: 'Hide Details',
+    clickShowDetails: 'Click "Show Details" to view the shared account credentials',
+    email: 'Email',
+    password: 'Password',
+    copy: 'Copy',
+    importantNote: 'Important:',
+    credentialsWarning: 'Keep these credentials private and only share with authorized family members.',
+    familyMembers: 'Family Members',
+    seatsFilled: 'Seats Filled',
+    member: 'Member',
+    fractionAmount: 'Fraction Amount',
+    status: 'Status',
+    actions: 'Actions',
+    paid: 'Paid',
+    pending: 'Pending',
+    sendReminder: 'Send Reminder',
+    removeMember: 'Remove Member',
+    renewalHistory: 'Renewal History',
+    renewedOn: 'Renewed on',
+    completed: 'Completed',
+    paymentDetails: 'Payment Details',
+    nextBillingCycle: 'Next billing cycle will be automatically processed on',
+    cancelSubscription: 'Cancel Subscription',
+    viewBillingHistory: 'View Billing History',
+    backToDashboard: 'Back to Dashboard',
+    editSubscription: 'Edit Subscription',
+    saveChanges: 'Save Changes',
+    cancel: 'Cancel',
+    subscriptionDetails: 'Subscription Details',
+    subscriptionName: 'Subscription Name',
+    totalPrice: 'Total Price',
+    billingCycle: 'Billing Cycle',
+    monthly: 'Monthly',
+    annual: 'Annual',
+    nextPaymentDate: 'Next Payment Date',
+    accountCredentials: 'Account Credentials',
+    accountEmail: 'Account Email',
+    accountPassword: 'Account Password',
+    inviteMembers: 'Invite Members',
+    addMember: 'Add Member',
+    emailPlaceholder: 'member@example.com',
+    costPerPerson: 'Cost per Person',
+    noHistory: 'No Renewal History',
+    noHistoryDesc: 'Renewal history will appear here once payments are processed'
+  },
+  es: {
+    search: 'Buscar',
+    dashboard: 'Panel',
+    subscriptions: 'Suscripciones',
+    settings: 'Configuración',
+    netflixDetails: 'Detalles de Netflix',
+    netflixFamily: 'Plan Familiar Netflix',
+    month: 'mes',
+    activeSubscription: 'Suscripción Activa',
+    editPlan: 'Editar Plan',
+    nextRenewal: 'Próxima Renovación',
+    paymentMethod: 'Método de Pago',
+    autoRenewal: 'Renovación automática',
+    groupSize: 'Tamaño del Grupo',
+    members: 'Miembros',
+    sharedAccountCredentials: 'Credenciales de la Cuenta Compartida',
+    showDetails: 'Mostrar Detalles',
+    hideDetails: 'Ocultar Detalles',
+    clickShowDetails: 'Haz clic en "Mostrar Detalles" para ver las credenciales de la cuenta compartida',
+    email: 'Correo',
+    password: 'Contraseña',
+    copy: 'Copiar',
+    importantNote: 'Importante:',
+    credentialsWarning: 'Mantén estas credenciales privadas y solo compártelas con miembros autorizados de la familia.',
+    familyMembers: 'Miembros de la Familia',
+    seatsFilled: 'Asientos Ocupados',
+    member: 'Miembro',
+    fractionAmount: 'Monto Fraccionado',
+    status: 'Estado',
+    actions: 'Acciones',
+    paid: 'Pagado',
+    pending: 'Pendiente',
+    sendReminder: 'Enviar Recordatorio',
+    removeMember: 'Eliminar Miembro',
+    renewalHistory: 'Historial de Renovación',
+    renewedOn: 'Renovado el',
+    completed: 'Completado',
+    paymentDetails: 'Detalles del Pago',
+    nextBillingCycle: 'El próximo ciclo de facturación se procesará automáticamente el',
+    cancelSubscription: 'Cancelar Suscripción',
+    viewBillingHistory: 'Ver Historial de Facturación',
+    backToDashboard: 'Volver al Panel',
+    editSubscription: 'Editar Suscripción',
+    saveChanges: 'Guardar Cambios',
+    cancel: 'Cancelar',
+    subscriptionDetails: 'Detalles de la Suscripción',
+    subscriptionName: 'Nombre de la Suscripción',
+    totalPrice: 'Precio Total',
+    billingCycle: 'Ciclo de Facturación',
+    monthly: 'Mensual',
+    annual: 'Anual',
+    nextPaymentDate: 'Fecha del Próximo Pago',
+    accountCredentials: 'Credenciales de la Cuenta',
+    accountEmail: 'Correo de la Cuenta',
+    accountPassword: 'Contraseña de la Cuenta',
+    inviteMembers: 'Invitar Miembros',
+    addMember: 'Añadir Miembro',
+    emailPlaceholder: 'miembro@ejemplo.com',
+    costPerPerson: 'Costo por Persona',
+    noHistory: 'Sin Historial de Renovación',
+    noHistoryDesc: 'El historial de renovación aparecerá aquí una vez que se procesen los pagos'
+  }
+};
+
 export function SubscriptionDetails({ subscription, onNavigate, language, onLanguageChange }: SubscriptionDetailsProps) {
+  const t = translations[language];
   const [showDetails, setShowDetails] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [openMemberMenu, setOpenMemberMenu] = useState<string | null>(null);
@@ -124,7 +252,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="Search"
+                  placeholder={t.search}
                   className="pl-4 pr-4 py-1.5 border border-gray-200 rounded-lg bg-gray-50 w-48 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -135,17 +263,17 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
                 onClick={() => onNavigate('dashboard')}
                 className="text-sm text-gray-600 hover:text-gray-900"
               >
-                Dashboard
+                {t.dashboard}
               </button>
               <button className="text-sm text-blue-600 font-medium border-b-2 border-blue-600 pb-4 -mb-4">
-                Subscriptions
+                {t.subscriptions}
               </button>
               
               <button 
                 onClick={() => onNavigate('settings')}
                 className="text-sm text-gray-600 hover:text-gray-900"
               >
-                Settings
+                {t.settings}
               </button>
               
               <div className="flex items-center gap-3 pl-6 border-l border-gray-200">
@@ -171,10 +299,10 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
             onClick={() => onNavigate('dashboard')}
             className="hover:text-gray-900"
           >
-            Subscriptions
+            {t.subscriptions}
           </button>
           <span>/</span>
-          <span className="text-gray-900">Netflix Details</span>
+          <span className="text-gray-900">{t.netflixDetails}</span>
         </div>
       </div>
 
@@ -188,13 +316,13 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
                 <div className="text-red-600 text-2xl font-bold">NETFLIX</div>
               </div>
               <div>
-                <h1 className="text-2xl font-semibold text-gray-900 mb-1">Netflix Family Plan</h1>
+                <h1 className="text-2xl font-semibold text-gray-900 mb-1">{t.netflixFamily}</h1>
                 <div className="text-xl text-blue-600 font-semibold mb-2">
-                  $19.99 <span className="text-sm text-gray-500 font-normal">/ month</span>
+                  $19.99 <span className="text-sm text-gray-500 font-normal">/ {t.month}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span className="text-sm text-gray-600">Active Subscription</span>
+                  <span className="text-sm text-gray-600">{t.activeSubscription}</span>
                 </div>
               </div>
             </div>
@@ -205,7 +333,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
                 className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
               >
                 <Edit className="w-4 h-4" />
-                Edit Plan
+                {t.editPlan}
               </button>
               
             </div>
@@ -217,7 +345,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <div className="flex items-center gap-3 mb-3 text-gray-600">
               <Calendar className="w-5 h-5" />
-              <span className="text-sm">Next Renewal</span>
+              <span className="text-sm">{t.nextRenewal}</span>
             </div>
             <div className="text-2xl font-semibold text-gray-900">Oct 15, 2023</div>
           </div>
@@ -225,24 +353,24 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <div className="flex items-center gap-3 mb-3 text-gray-600">
               <RefreshCw className="w-5 h-5" />
-              <span className="text-sm">Payment Method</span>
+              <span className="text-sm">{t.paymentMethod}</span>
             </div>
-            <div className="text-2xl font-semibold text-gray-900">Auto-renewal</div>
+            <div className="text-2xl font-semibold text-gray-900">{t.autoRenewal}</div>
           </div>
 
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <div className="flex items-center gap-3 mb-3 text-gray-600">
               <UsersIcon className="w-5 h-5" />
-              <span className="text-sm">Group Size</span>
+              <span className="text-sm">{t.groupSize}</span>
             </div>
-            <div className="text-2xl font-semibold text-gray-900">4 Members</div>
+            <div className="text-2xl font-semibold text-gray-900">4 {t.members}</div>
           </div>
         </div>
 
         {/* Shared Account Credentials */}
         <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Shared Account Credentials</h2>
+            <h2 className="text-lg font-semibold text-gray-900">{t.sharedAccountCredentials}</h2>
             <button 
               onClick={() => setShowDetails(!showDetails)}
               className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
@@ -250,12 +378,12 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
               {showDetails ? (
                 <>
                   <EyeOff className="w-4 h-4" />
-                  Hide Details
+                  {t.hideDetails}
                 </>
               ) : (
                 <>
                   <Eye className="w-4 h-4" />
-                  Show Details
+                  {t.showDetails}
                 </>
               )}
             </button>
@@ -263,13 +391,13 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
 
           {!showDetails ? (
             <div className="text-sm text-gray-500 text-center py-8">
-              Click "Show Details" to view the shared account credentials
+              {t.clickShowDetails}
             </div>
           ) : (
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email
+                  {t.email}
                 </label>
                 <div className="flex items-center gap-2">
                   <input
@@ -279,14 +407,14 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 font-mono text-sm"
                   />
                   <button className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
-                    Copy
+                    {t.copy}
                   </button>
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Password
+                  {t.password}
                 </label>
                 <div className="flex items-center gap-2">
                   <input
@@ -296,7 +424,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 font-mono text-sm"
                   />
                   <button className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
-                    Copy
+                    {t.copy}
                   </button>
                 </div>
               </div>
@@ -304,7 +432,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
               <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-2">
                 <Info className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
                 <div className="text-sm text-yellow-800">
-                  <strong>Important:</strong> Keep these credentials private and only share with authorized family members.
+                  <strong>{t.importantNote}</strong> {t.credentialsWarning}
                 </div>
               </div>
             </div>
@@ -314,18 +442,18 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
         {/* Family Members */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-gray-900">Family Members</h2>
-            <span className="text-sm text-gray-500">3 / 4 Seats Filled</span>
+            <h2 className="text-lg font-semibold text-gray-900">{t.familyMembers}</h2>
+            <span className="text-sm text-gray-500">3 / 4 {t.seatsFilled}</span>
           </div>
 
           <div className="overflow-hidden rounded-lg border border-gray-200">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Member</th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Fraction Amount</th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">{t.member}</th>
+                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">{t.fractionAmount}</th>
+                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">{t.status}</th>
+                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">{t.actions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -355,12 +483,12 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
                     <td className="px-6 py-4">
                       {member.status === 'paid' && (
                         <span className="px-3 py-1 bg-green-100 text-green-700 text-sm font-medium rounded-full">
-                          Paid
+                          {t.paid}
                         </span>
                       )}
                       {member.status === 'pending' && (
                         <span className="px-3 py-1 bg-yellow-100 text-yellow-700 text-sm font-medium rounded-full">
-                          Pending
+                          {t.pending}
                         </span>
                       )}
                     </td>
@@ -368,7 +496,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
                       {member.status === 'pending' ? (
                         <button className="flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm font-medium">
                           <Send className="w-4 h-4" />
-                          Send Reminder
+                          {t.sendReminder}
                         </button>
                       ) : (
                         <div className="relative">
@@ -389,7 +517,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
                                 className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
                               >
                                 <Trash2 className="w-4 h-4" />
-                                {language === 'es' ? 'Eliminar Miembro' : 'Remove Member'}
+                                {t.removeMember}
                               </button>
                             </div>
                           )}
@@ -407,7 +535,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
 
         {/* Renewal History */}
         <div className="mt-6 bg-white rounded-lg border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-6">Renewal History</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-6">{t.renewalHistory}</h2>
           
           <div className="space-y-4">
             {renewalHistory.map((renewal) => (
@@ -415,7 +543,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <div className="font-semibold text-gray-900">{renewal.period}</div>
-                    <div className="text-sm text-gray-500">Renewed on {renewal.date}</div>
+                    <div className="text-sm text-gray-500">{t.renewedOn} {renewal.date}</div>
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="text-right">
@@ -423,11 +551,11 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
                     </div>
                     {renewal.status === 'completed' ? (
                       <span className="px-3 py-1 bg-green-100 text-green-700 text-sm font-medium rounded-full">
-                        Completed
+                        {t.completed}
                       </span>
                     ) : (
                       <span className="px-3 py-1 bg-yellow-100 text-yellow-700 text-sm font-medium rounded-full">
-                        Pending
+                        {t.pending}
                       </span>
                     )}
                   </div>
@@ -435,7 +563,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
 
                 {/* Payment Details */}
                 <div className="mt-4 bg-gray-50 rounded-lg p-4">
-                  <div className="text-sm font-medium text-gray-700 mb-3">Payment Details</div>
+                  <div className="text-sm font-medium text-gray-700 mb-3">{t.paymentDetails}</div>
                   <div className="space-y-2">
                     {renewal.payments.map((payment) => (
                       <div key={payment.memberId} className="flex items-center justify-between text-sm">
@@ -448,7 +576,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
                           {payment.status === 'paid' ? (
                             <span className="text-green-600 text-xs">{payment.paidDate}</span>
                           ) : (
-                            <span className="text-yellow-600 text-xs font-medium">Pending</span>
+                            <span className="text-yellow-600 text-xs font-medium">{t.pending}</span>
                           )}
                         </div>
                       </div>
@@ -465,15 +593,15 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
           <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
             <div className="text-sm text-blue-900">
-              Next billing cycle will be automatically processed on <span className="font-semibold">October 15, 2023</span>
+              {t.nextBillingCycle} <span className="font-semibold">October 15, 2023</span>
             </div>
           </div>
           <div className="flex gap-3">
             <button className="text-sm text-gray-600 hover:text-gray-900">
-              Cancel Subscription
+              {t.cancelSubscription}
             </button>
             <button className="text-sm text-blue-600 hover:text-blue-700">
-              View Billing History
+              {t.viewBillingHistory}
             </button>
           </div>
         </div>
@@ -485,7 +613,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
             className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to Dashboard
+            {t.backToDashboard}
           </button>
         </div>
       </div>
@@ -497,8 +625,8 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h1 className="text-2xl font-semibold text-gray-900 mb-2">Edit Subscription</h1>
-                <p className="text-gray-600">Update your subscription details and manage members</p>
+                <h1 className="text-2xl font-semibold text-gray-900 mb-2">{t.editSubscription}</h1>
+                <p className="text-gray-600">{language === 'es' ? 'Actualiza los detalles de tu suscripción y gestiona miembros' : 'Update your subscription details and manage members'}</p>
               </div>
               <button
                 onClick={handleCancelEdit}
@@ -513,7 +641,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
               <div className="col-span-2 space-y-6">
                 {/* Subscription Name */}
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
-                  <h2 className="font-semibold text-gray-900 mb-4">Subscription Name</h2>
+                  <h2 className="font-semibold text-gray-900 mb-4">{t.subscriptionName}</h2>
                   <input
                     type="text"
                     value={editName}
@@ -525,12 +653,12 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
 
                 {/* Subscription Details */}
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
-                  <h2 className="font-semibold text-gray-900 mb-4">Subscription Details</h2>
+                  <h2 className="font-semibold text-gray-900 mb-4">{t.subscriptionDetails}</h2>
                   
                   <div className="grid grid-cols-2 gap-6 mb-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Total Price
+                        {t.totalPrice}
                       </label>
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
@@ -546,7 +674,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Billing Cycle
+                        {t.billingCycle}
                       </label>
                       <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
                         <button
@@ -557,7 +685,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
                               : 'text-gray-600 hover:text-gray-900'
                           }`}
                         >
-                          Monthly
+                          {t.monthly}
                         </button>
                         <button
                           onClick={() => setEditBillingCycle('annual')}
@@ -567,7 +695,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
                               : 'text-gray-600 hover:text-gray-900'
                           }`}
                         >
-                          Annual
+                          {t.annual}
                         </button>
                       </div>
                     </div>
@@ -575,7 +703,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Next Payment Date
+                      {t.nextPaymentDate}
                     </label>
                     <div className="relative">
                       <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -592,12 +720,12 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
 
                 {/* Account Credentials */}
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
-                  <h2 className="font-semibold text-gray-900 mb-4">Account Credentials</h2>
+                  <h2 className="font-semibold text-gray-900 mb-4">{t.accountCredentials}</h2>
                   
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Email
+                        {t.email}
                       </label>
                       <input
                         type="email"
@@ -610,7 +738,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Password
+                        {t.password}
                       </label>
                       <input
                         type="text"
