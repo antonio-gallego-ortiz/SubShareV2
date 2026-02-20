@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, UserPlus, Calendar, Trash2, Info, ShieldCheck } from 'lucide-react';
 import type { View } from '../App';
 import { LanguageSelector } from './LanguageSelector';
 import { NotificationPanel } from './NotificationPanel';
+import { getCurrentProfile, createSubscription } from '../lib/supabaseApi';
 
 interface AddSubscriptionProps {
   onNavigate: (view: View) => void;
@@ -32,14 +33,34 @@ export function AddSubscription({ onNavigate, language, onLanguageChange }: AddS
   const [nextPaymentDate, setNextPaymentDate] = useState('');
   const [customName, setCustomName] = useState('');
   const [emailInput, setEmailInput] = useState('');
-  const [members, setMembers] = useState<InvitedMember[]>([
-    { id: '1', name: 'John Doe (You)', email: 'john@example.com', initials: 'JD', isOwner: true },
-    { id: '2', name: 'Sarah Miller', email: 'sarah.m@gmail.com', initials: 'SM', isOwner: false },
-    { id: '3', name: 'Ryan Knight', email: 'ryan.k@outlook.com', initials: 'RK', isOwner: false },
-  ]);
+  const [members, setMembers] = useState<InvitedMember[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [userProfile, setUserProfile] = useState<{
+    fullName: string;
+    avatarUrl: string;
+  }>({ fullName: '', avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=User' });
 
   const totalMembers = members.length;
   const costPerPerson = totalMembers > 0 ? parseFloat(price) / totalMembers : 0;
+
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        const profile = await getCurrentProfile();
+        if (profile) {
+          setUserProfile({
+            fullName: profile.full_name || 'User',
+            avatarUrl: profile.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=User'
+          });
+        }
+      } catch (error) {
+        console.error('Error loading profile:', error);
+      }
+    };
+
+    loadUserProfile();
+  }, []);
 
   const handleAddMember = () => {
     if (emailInput.trim()) {
@@ -61,9 +82,43 @@ export function AddSubscription({ onNavigate, language, onLanguageChange }: AddS
     setMembers(members.filter(m => m.id !== id));
   };
 
-  const handleConfirm = () => {
-    // Aquí iría la lógica para guardar la suscripción
-    onNavigate('dashboard');
+  const handleConfirm = async () => {
+    try {
+      setLoading(true);
+      setError('');
+
+      // Validate inputs
+      if (!price || parseFloat(price) <= 0) {
+        setError('Please enter a valid price');
+        return;
+      }
+
+      const serviceName = selectedService === 'custom' 
+        ? customName || 'Custom Service' 
+        : services.find(s => s.id === selectedService)?.name || 'Subscription';
+
+      // Calculate total members (only invited members + owner)
+      const totalMembersCount = members.length + 1; // +1 for owner
+
+      // Create subscription in database
+      await createSubscription({
+        name: serviceName,
+        logo: selectedService === 'custom' ? customName.charAt(0).toUpperCase() : services.find(s => s.id === selectedService)?.logo || 'S',
+        price: parseFloat(price),
+        billing_cycle: billingCycle === 'monthly' ? 'month' : 'year',
+        next_renewal: nextPaymentDate || undefined,
+        payment_method: 'Not set',
+        total_members: totalMembersCount
+      });
+
+      // Navigate to dashboard after successful creation
+      onNavigate('dashboard');
+    } catch (err: any) {
+      console.error('Error creating subscription:', err);
+      setError(err.message || 'Failed to create subscription. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -104,12 +159,12 @@ export function AddSubscription({ onNavigate, language, onLanguageChange }: AddS
               <div className="flex items-center gap-3 pl-6 border-l border-gray-200">
                 <LanguageSelector language={language} onLanguageChange={onLanguageChange} />
                 <NotificationPanel language={language} />
-                <div 
+                <img
+                  src={userProfile.avatarUrl}
+                  alt={userProfile.fullName}
                   onClick={() => onNavigate('settings')}
-                  className="w-9 h-9 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 font-medium cursor-pointer hover:bg-orange-200 transition-colors"
-                >
-                  U
-                </div>
+                  className="w-8 h-8 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all object-cover"
+                />
               </div>
             </div>
           </div>
@@ -307,15 +362,25 @@ export function AddSubscription({ onNavigate, language, onLanguageChange }: AddS
                 </div>
               </div>
 
+              {error && (
+                <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-4 mb-4 text-white text-sm">
+                  {error}
+                </div>
+              )}
+
               <button
                 onClick={handleConfirm}
-                className="w-full bg-white text-blue-600 font-semibold py-3 px-4 rounded-lg hover:bg-blue-50 transition-colors mb-3"
+                disabled={loading}
+                className="w-full bg-white text-blue-600 font-semibold py-3 px-4 rounded-lg hover:bg-blue-50 transition-colors mb-3 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Confirm & Save
+                {loading ? 'Creating Subscription...' : 'Confirm & Save'}
               </button>
 
-              <button className="w-full border border-white/30 text-white font-medium py-3 px-4 rounded-lg hover:bg-white/10 transition-colors">
-                Save as Draft
+              <button 
+                onClick={() => onNavigate('dashboard')}
+                className="w-full border border-white/30 text-white font-medium py-3 px-4 rounded-lg hover:bg-white/10 transition-colors"
+              >
+                Cancel
               </button>
             </div>
 

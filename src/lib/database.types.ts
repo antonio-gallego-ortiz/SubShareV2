@@ -6,7 +6,7 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export interface Database {
+export type Database = {
   public: {
     Tables: {
       profiles: {
@@ -14,6 +14,7 @@ export interface Database {
           id: string
           email: string
           full_name: string | null
+          phone: string | null
           avatar_url: string | null
           created_at: string
           updated_at: string
@@ -22,6 +23,7 @@ export interface Database {
           id: string
           email: string
           full_name?: string | null
+          phone?: string | null
           avatar_url?: string | null
           created_at?: string
           updated_at?: string
@@ -30,10 +32,12 @@ export interface Database {
           id?: string
           email?: string
           full_name?: string | null
+          phone?: string | null
           avatar_url?: string | null
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       subscriptions: {
         Row: {
@@ -78,6 +82,15 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       subscription_members: {
         Row: {
@@ -104,6 +117,22 @@ export interface Database {
           is_owner?: boolean
           joined_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_members_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       payments: {
         Row: {
@@ -145,6 +174,22 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "payments_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_members"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       notifications: {
         Row: {
@@ -177,6 +222,22 @@ export interface Database {
           related_subscription_id?: string | null
           created_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_related_subscription_id_fkey"
+            columns: ["related_subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       invitations: {
         Row: {
@@ -209,6 +270,22 @@ export interface Database {
           expires_at?: string | null
           created_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "invitations_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invitations_inviter_id_fkey"
+            columns: ["inviter_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
       }
     }
     Views: {

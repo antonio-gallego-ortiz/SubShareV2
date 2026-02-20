@@ -1,13 +1,15 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Search, Bell, Save, User, Lock, CreditCard as CreditCardIcon, Globe, Shield, Mail, Smartphone, LogOut, Eye } from 'lucide-react';
 import type { View } from '../App';
 import { LanguageSelector } from './LanguageSelector';
 import { NotificationPanel } from './NotificationPanel';
+import { getCurrentProfile, getCurrentUser, updateProfile } from '../lib/supabaseApi';
 
 interface SettingsProps {
   onNavigate: (view: View) => void;
   language: 'en' | 'es';
   onLanguageChange: (lang: 'en' | 'es') => void;
+  onLogout: () => void;
 }
 
 const translations = {
@@ -71,7 +73,9 @@ const translations = {
     cardHolder: 'Cardholder Name',
     expiryDate: 'Expiry Date',
     cvv: 'CVV',
-    addCard: 'Add Card'
+    addCard: 'Add Card',
+    logout: 'Logout',
+    logoutDesc: 'Sign out of your account'
   },
   es: {
     title: 'Configuración',
@@ -133,11 +137,13 @@ const translations = {
     cardHolder: 'Nombre del Titular',
     expiryDate: 'Fecha de Vencimiento',
     cvv: 'CVV',
-    addCard: 'Agregar Tarjeta'
+    addCard: 'Agregar Tarjeta',
+    logout: 'Cerrar Sesión',
+    logoutDesc: 'Salir de tu cuenta'
   }
 };
 
-export function Settings({ onNavigate, language, onLanguageChange }: SettingsProps) {
+export function Settings({ onNavigate, language, onLanguageChange, onLogout }: SettingsProps) {
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'payment' | 'notifications' | 'preferences'>('profile');
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
@@ -155,8 +161,60 @@ export function Settings({ onNavigate, language, onLanguageChange }: SettingsPro
   const [showActualPassword, setShowActualPassword] = useState(false);
   const [actualPassword, setActualPassword] = useState('MySecurePass123');
   
+  // User data states
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const t = translations[language];
+
+  // Load user profile data
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        setLoading(true);
+        const profile = await getCurrentProfile();
+        if (profile) {
+          setFullName(profile.full_name || '');
+          setEmail(profile.email || '');
+          setPhone(profile.phone || '');
+          setProfilePhoto(profile.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=User');
+        }
+      } catch (error) {
+        console.error('Error loading profile:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUserProfile();
+  }, []);
+
+  const handleSaveChanges = async () => {
+    try {
+      setSaving(true);
+      const user = await getCurrentUser();
+      if (user) {
+        await updateProfile(user.id, {
+          full_name: fullName,
+          email: email,
+          phone: phone,
+          avatar_url: profilePhoto
+        });
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      }
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      alert(language === 'en' ? 'Error saving changes' : 'Error al guardar cambios');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -235,10 +293,10 @@ export function Settings({ onNavigate, language, onLanguageChange }: SettingsPro
               >
                 <img
                   src={profilePhoto}
-                  alt="Alex M."
-                  className="w-8 h-8 rounded-full"
+                  alt={fullName || 'User'}
+                  className="w-8 h-8 rounded-full object-cover"
                 />
-                <span className="text-sm font-medium text-gray-700">Alex M.</span>
+                <span className="text-sm font-medium text-gray-700">{fullName || 'User'}</span>
               </div>
             </div>
           </div>
@@ -277,10 +335,19 @@ export function Settings({ onNavigate, language, onLanguageChange }: SettingsPro
             <h1 className="text-2xl font-semibold text-gray-900 mb-1">{t.title}</h1>
             <p className="text-gray-600">{t.subtitle}</p>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+          <button 
+            onClick={handleSaveChanges}
+            disabled={saving}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors"
+          >
             <Save className="w-4 h-4" />
-            {t.saveChanges}
+            {saving ? (language === 'en' ? 'Saving...' : 'Guardando...') : t.saveChanges}
           </button>
+          {saveSuccess && (
+            <div className="text-sm text-green-600 font-medium">
+              {language === 'en' ? '✓ Saved successfully' : '✓ Guardado exitosamente'}
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-4 gap-6">
@@ -375,7 +442,8 @@ export function Settings({ onNavigate, language, onLanguageChange }: SettingsPro
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t.fullName}</label>
                     <input
                       type="text"
-                      defaultValue="Alex Martinez"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -383,7 +451,8 @@ export function Settings({ onNavigate, language, onLanguageChange }: SettingsPro
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t.email}</label>
                     <input
                       type="email"
-                      defaultValue="alex.m@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -391,7 +460,8 @@ export function Settings({ onNavigate, language, onLanguageChange }: SettingsPro
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t.phone}</label>
                     <input
                       type="tel"
-                      defaultValue="+1 (555) 123-4567"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -631,6 +701,26 @@ export function Settings({ onNavigate, language, onLanguageChange }: SettingsPro
                         />
                       </button>
                     </div>
+                  </div>
+                </div>
+
+                {/* Logout Section */}
+                <div className="bg-blue-50 rounded-xl border border-blue-200 p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <LogOut className="w-5 h-5 text-blue-600" />
+                      <div>
+                        <div className="font-medium text-gray-900">{t.logout}</div>
+                        <div className="text-sm text-gray-600">{t.logoutDesc}</div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={onLogout}
+                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      {t.logout}
+                    </button>
                   </div>
                 </div>
 

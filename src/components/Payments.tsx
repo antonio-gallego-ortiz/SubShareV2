@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Bell, Download, Filter, CreditCard, CheckCircle, Clock, XCircle, Calendar, X, DollarSign } from 'lucide-react';
 import type { View } from '../App';
 import { LanguageSelector } from './LanguageSelector';
 import { NotificationPanel } from './NotificationPanel';
+import { getCurrentProfile } from '../lib/supabaseApi';
 
 interface PaymentsProps {
   onNavigate: (view: View) => void;
@@ -21,78 +22,8 @@ interface Transaction {
   category: string;
 }
 
-const transactions: Transaction[] = [
-  {
-    id: '1',
-    date: '2023-10-15',
-    subscription: 'Netflix Premium',
-    member: 'Sarah Miller',
-    amount: 5.00,
-    status: 'completed',
-    paymentMethod: 'Visa ****4532',
-    category: 'Entertainment'
-  },
-  {
-    id: '2',
-    date: '2023-10-14',
-    subscription: 'Spotify Family',
-    member: 'Alex Martinez',
-    amount: 2.83,
-    status: 'completed',
-    paymentMethod: 'Auto-debit',
-    category: 'Music'
-  },
-  {
-    id: '3',
-    date: '2023-10-13',
-    subscription: 'YouTube Premium',
-    member: 'Charlie Davis',
-    amount: 4.60,
-    status: 'completed',
-    paymentMethod: 'Mastercard ****8821',
-    category: 'Entertainment'
-  },
-  {
-    id: '4',
-    date: '2023-10-12',
-    subscription: 'Netflix Premium',
-    member: 'Bob Jenkins',
-    amount: 5.00,
-    status: 'pending',
-    paymentMethod: 'Pending',
-    category: 'Entertainment'
-  },
-  {
-    id: '5',
-    date: '2023-10-10',
-    subscription: 'Spotify Family',
-    member: 'Emma Wilson',
-    amount: 2.83,
-    status: 'completed',
-    paymentMethod: 'Visa ****2109',
-    category: 'Music'
-  },
-  {
-    id: '6',
-    date: '2023-10-08',
-    subscription: 'Netflix Premium',
-    member: 'Charlie Davis',
-    amount: 5.00,
-    status: 'failed',
-    paymentMethod: 'Visa ****3421',
-    category: 'Entertainment'
-  },
-  {
-    id: '7',
-    date: '2023-10-05',
-    subscription: 'YouTube Premium',
-    member: 'Sarah Miller',
-    amount: 4.60,
-    status: 'completed',
-    paymentMethod: 'Visa ****4532',
-    category: 'Entertainment'
-  }
-];
+// Initialize with empty transactions - will be loaded from database
+const transactions: Transaction[] = [];
 
 const translations = {
   en: {
@@ -130,7 +61,9 @@ const translations = {
     notesPlaceholder: 'Add any additional details about this payment...',
     cancel: 'Cancel',
     confirmPayment: 'Confirm Payment',
-    actions: 'Actions'
+    actions: 'Actions',
+    noPayments: 'No Payments Yet',
+    noPaymentsDesc: 'Your payment history will appear here once you start making transactions'
   },
   es: {
     title: 'Historial de Pagos',
@@ -167,7 +100,9 @@ const translations = {
     notesPlaceholder: 'Añade detalles adicionales sobre este pago...',
     cancel: 'Cancelar',
     confirmPayment: 'Confirmar Pago',
-    actions: 'Acciones'
+    actions: 'Acciones',
+    noPayments: 'Sin Pagos Aún',
+    noPaymentsDesc: 'Tu historial de pagos aparecerá aquí una vez que comiences a hacer transacciones'
   }
 };
 
@@ -178,7 +113,29 @@ export function Payments({ onNavigate, language, onLanguageChange }: PaymentsPro
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
+  const [userProfile, setUserProfile] = useState<{
+    fullName: string;
+    avatarUrl: string;
+  }>({ fullName: '', avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=User' });
   const t = translations[language];
+
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        const profile = await getCurrentProfile();
+        if (profile) {
+          setUserProfile({
+            fullName: profile.full_name || 'User',
+            avatarUrl: profile.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=User'
+          });
+        }
+      } catch (error) {
+        console.error('Error loading profile:', error);
+      }
+    };
+
+    loadUserProfile();
+  }, []);
 
   const handleOpenPaymentModal = (transaction: Transaction) => {
     setSelectedTransaction(transaction);
@@ -250,11 +207,11 @@ export function Payments({ onNavigate, language, onLanguageChange }: PaymentsPro
                 className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-lg px-2 py-1 transition-colors"
               >
                 <img
-                  src="https://api.dicebear.com/7.x/avataaars/svg?seed=Alex"
-                  alt="Alex M."
-                  className="w-8 h-8 rounded-full"
+                  src={userProfile.avatarUrl}
+                  alt={userProfile.fullName}
+                  className="w-8 h-8 rounded-full object-cover"
                 />
-                <span className="text-sm font-medium text-gray-700">Alex M.</span>
+                <span className="text-sm font-medium text-gray-700">{userProfile.fullName}</span>
               </div>
             </div>
           </div>
@@ -390,8 +347,17 @@ export function Payments({ onNavigate, language, onLanguageChange }: PaymentsPro
 
         {/* Transactions Table */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          {filteredTransactions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+                <CreditCard className="w-10 h-10 text-gray-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">{t.noPayments}</h3>
+              <p className="text-gray-500 mb-6 text-center max-w-md">{t.noPaymentsDesc}</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 uppercase">{t.date}</th>
@@ -465,7 +431,8 @@ export function Payments({ onNavigate, language, onLanguageChange }: PaymentsPro
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+          )}
         </div>
       </div>
 

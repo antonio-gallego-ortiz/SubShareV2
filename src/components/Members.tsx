@@ -3,6 +3,7 @@ import { Search, Bell, UserPlus, Mail, MoreVertical, Shield, Clock, CheckCircle,
 import type { View } from '../App';
 import { LanguageSelector } from './LanguageSelector';
 import { NotificationPanel } from './NotificationPanel';
+import { getCurrentProfile } from '../lib/supabaseApi';
 
 interface MembersProps {
   onNavigate: (view: View) => void;
@@ -23,68 +24,8 @@ interface MemberData {
   lastPayment: string;
 }
 
-const members: MemberData[] = [
-  {
-    id: '1',
-    name: 'Alex Martinez',
-    email: 'alex.m@example.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex',
-    role: 'owner',
-    status: 'active',
-    subscriptions: 3,
-    totalContribution: 12.43,
-    joinedDate: 'Jan 2023',
-    lastPayment: '2 days ago'
-  },
-  {
-    id: '2',
-    name: 'Sarah Miller',
-    email: 'sarah.m@gmail.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah',
-    role: 'member',
-    status: 'active',
-    subscriptions: 2,
-    totalContribution: 7.83,
-    joinedDate: 'Feb 2023',
-    lastPayment: '1 day ago'
-  },
-  {
-    id: '3',
-    name: 'Bob Jenkins',
-    email: 'bob.j@provider.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Bob',
-    role: 'member',
-    status: 'pending',
-    subscriptions: 1,
-    totalContribution: 5.00,
-    joinedDate: 'Mar 2023',
-    lastPayment: 'Pending'
-  },
-  {
-    id: '4',
-    name: 'Charlie Davis',
-    email: 'charlie.d@site.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Charlie',
-    role: 'member',
-    status: 'active',
-    subscriptions: 2,
-    totalContribution: 9.60,
-    joinedDate: 'Feb 2023',
-    lastPayment: '3 days ago'
-  },
-  {
-    id: '5',
-    name: 'Emma Wilson',
-    email: 'emma.w@email.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Emma',
-    role: 'member',
-    status: 'active',
-    subscriptions: 1,
-    totalContribution: 4.60,
-    joinedDate: 'Mar 2023',
-    lastPayment: '1 week ago'
-  }
-];
+// Initialize with empty members - will be loaded from database
+const members: MemberData[] = [];
 
 const translations = {
   en: {
@@ -117,7 +58,9 @@ const translations = {
     onlyAdminsCanPromote: 'Only administrators can promote members to admin',
     sendReminder: 'Send Reminder',
     removeUser: 'Remove User',
-    joined: 'Joined'
+    joined: 'Joined',
+    noMembers: 'No Members Yet',
+    noMembersDesc: 'Start building your sharing group by inviting the first member'
   },
   es: {
     title: 'Miembros de la Familia',
@@ -149,7 +92,9 @@ const translations = {
     onlyAdminsCanPromote: 'Solo los administradores pueden promover miembros a administrador',
     sendReminder: 'Enviar Recordatorio',
     removeUser: 'Eliminar Usuario',
-    joined: 'Unido'
+    joined: 'Unido',
+    noMembers: 'Sin Miembros Aún',
+    noMembersDesc: 'Comienza a construir tu grupo de compartición invitando al primer miembro'
   }
 };
 
@@ -157,12 +102,35 @@ export function Members({ onNavigate, language, onLanguageChange }: MembersProps
   const [searchTerm, setSearchTerm] = useState('');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [membersData, setMembersData] = useState<MemberData[]>(members);
+  const [userProfile, setUserProfile] = useState<{
+    fullName: string;
+    avatarUrl: string;
+  }>({ fullName: '', avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=User' });
   const menuRef = useRef<HTMLDivElement>(null);
   const t = translations[language];
 
   // Usuario actual es siempre el owner (Alex Martinez - id: '1')
   const currentUser = membersData.find(m => m.id === '1');
   const isCurrentUserOwner = currentUser?.role === 'owner';
+
+  // Cargar perfil del usuario
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        const profile = await getCurrentProfile();
+        if (profile) {
+          setUserProfile({
+            fullName: profile.full_name || 'User',
+            avatarUrl: profile.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=User'
+          });
+        }
+      } catch (error) {
+        console.error('Error loading profile:', error);
+      }
+    };
+
+    loadUserProfile();
+  }, []);
 
   // Cerrar menú al hacer clic fuera
   useEffect(() => {
@@ -245,11 +213,11 @@ export function Members({ onNavigate, language, onLanguageChange }: MembersProps
                 className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-lg px-2 py-1 transition-colors"
               >
                 <img
-                  src="https://api.dicebear.com/7.x/avataaars/svg?seed=Alex"
-                  alt="Alex M."
-                  className="w-8 h-8 rounded-full"
+                  src={userProfile.avatarUrl}
+                  alt={userProfile.fullName}
+                  className="w-8 h-8 rounded-full object-cover"
                 />
-                <span className="text-sm font-medium text-gray-700">Alex M.</span>
+                <span className="text-sm font-medium text-gray-700">{userProfile.fullName}</span>
               </div>
             </div>
           </div>
@@ -341,8 +309,24 @@ export function Members({ onNavigate, language, onLanguageChange }: MembersProps
 
         {/* Members Table */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          {filteredMembers.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+                <Users className="w-10 h-10 text-gray-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">{t.noMembers}</h3>
+              <p className="text-gray-500 mb-6 text-center max-w-md">{t.noMembersDesc}</p>
+              <button 
+                onClick={() => setShowInviteModal(true)}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2"
+              >
+                <UserPlus className="w-5 h-5" />
+                {t.inviteMember}
+              </button>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 uppercase">{t.name}</th>
@@ -459,7 +443,8 @@ export function Members({ onNavigate, language, onLanguageChange }: MembersProps
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,7 +1,9 @@
 import { Bell, Search, Settings, CreditCard, Users, MoreVertical, ArrowRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import type { View, Subscription } from '../App';
 import { LanguageSelector } from './LanguageSelector';
 import { NotificationPanel } from './NotificationPanel';
+import { getCurrentProfile, getUserSubscriptions, getSubscriptionMembers } from '../lib/supabaseApi';
 
 interface DashboardProps {
   onNavigate: (view: View, subscription?: Subscription) => void;
@@ -28,6 +30,9 @@ const translations = {
     yourShare: 'YOUR SHARE:',
     billingCycle: 'Billing Cycle',
     complete: 'complete',
+    noSubscriptions: 'No Active Subscriptions',
+    noSubscriptionsDesc: 'Start by adding your first shared subscription plan',
+    getStarted: 'Get Started',
   },
   es: {
     overview: 'Resumen',
@@ -46,65 +51,79 @@ const translations = {
     yourShare: 'TU PARTE:',
     billingCycle: 'Ciclo de Facturación',
     complete: 'completado',
+    noSubscriptions: 'Sin Suscripciones Activas',
+    noSubscriptionsDesc: 'Comienza añadiendo tu primer plan de suscripción compartido',
+    getStarted: 'Comenzar',
   }
 };
 
-const subscriptions: Subscription[] = [
-  {
-    id: '1',
-    name: 'Netflix Premium',
-    logo: 'N',
-    price: 19.99,
-    billingCycle: 'month',
-    yourShare: 5.00,
-    savings: 0,
-    members: [
-      { id: '1', name: 'Alice', email: 'alice@example.com', avatar: 'A', amount: 5.00, status: 'paid' },
-      { id: '2', name: 'Bob', email: 'bob@example.com', avatar: 'B', amount: 5.00, status: 'paid' },
-      { id: '3', name: 'Charlie', email: 'charlie@example.com', avatar: 'C', amount: 5.00, status: 'paid' },
-    ],
-    billingProgress: 85,
-    nextRenewal: 'Oct 24',
-    paymentMethod: 'Auto-renewal',
-    totalMembers: 4,
-    isActive: true
-  },
-  {
-    id: '2',
-    name: 'Spotify Family',
-    logo: 'S',
-    price: 16.99,
-    billingCycle: 'month',
-    yourShare: 2.83,
-    savings: 0,
-    members: [
-      { id: '1', name: 'Alice', email: 'alice@example.com', avatar: 'A', amount: 2.83, status: 'paid' },
-      { id: '2', name: 'Bob', email: 'bob@example.com', avatar: 'B', amount: 2.83, status: 'pending' },
-      { id: '3', name: 'Charlie', email: 'charlie@example.com', avatar: 'C', amount: 2.83, status: 'paid' },
-    ],
-    billingProgress: 32,
-    totalMembers: 6,
-    isActive: true
-  },
-  {
-    id: '3',
-    name: 'YouTube Family',
-    logo: 'Y',
-    price: 22.99,
-    billingCycle: 'month',
-    yourShare: 4.60,
-    savings: 0,
-    members: [
-      { id: '1', name: 'Alice', email: 'alice@example.com', avatar: 'A', amount: 4.60, status: 'paid' },
-      { id: '2', name: 'Bob', email: 'bob@example.com', avatar: 'B', amount: 4.60, status: 'paid' },
-    ],
-    billingProgress: 12,
-    totalMembers: 5,
-    isActive: true
-  },
-];
-
 export function Dashboard({ onNavigate, language, onLanguageChange }: DashboardProps) {
+  const [userProfile, setUserProfile] = useState<{
+    fullName: string;
+    avatarUrl: string;
+  }>({ fullName: '', avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=User' });
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const [profile, subs] = await Promise.all([
+          getCurrentProfile(),
+          getUserSubscriptions()
+        ]);
+        
+        if (profile) {
+          setUserProfile({
+            fullName: profile.full_name || 'User',
+            avatarUrl: profile.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=User'
+          });
+        }
+
+        if (subs) {
+          // Transform database subscriptions to match UI format
+          const transformedSubs = await Promise.all(subs.map(async (sub: any) => {
+            const members = await getSubscriptionMembers(sub.id);
+            const memberCount = members?.length || 0;
+            const userMember = members?.find((m: any) => m.user_id === profile?.id);
+            
+            return {
+              id: sub.id,
+              name: sub.name,
+              logo: sub.logo || sub.name.charAt(0).toUpperCase(),
+              price: sub.price,
+              billingCycle: sub.billing_cycle,
+              yourShare: userMember?.amount || 0,
+              savings: 0,
+              members: members?.map((m: any) => ({
+                id: m.id,
+                name: m.profile?.full_name || 'User',
+                email: m.profile?.email || '',
+                avatar: m.profile?.full_name?.charAt(0).toUpperCase() || 'U',
+                amount: m.amount,
+                status: 'paid' as const
+              })) || [],
+              billingProgress: 0,
+              nextRenewal: sub.next_renewal || 'N/A',
+              paymentMethod: sub.payment_method || 'Not set',
+              totalMembers: sub.total_members || memberCount,
+              isActive: sub.is_active
+            };
+          }));
+          
+          setSubscriptions(transformedSubs);
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
   // Filtrar solo suscripciones activas
   const activeSubscriptions = subscriptions.filter(sub => sub.isActive === true);
   
@@ -179,11 +198,11 @@ export function Dashboard({ onNavigate, language, onLanguageChange }: DashboardP
                 className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-lg px-2 py-1 transition-colors"
               >
                 <img
-                  src="https://api.dicebear.com/7.x/avataaars/svg?seed=Alex"
-                  alt="Alex M."
-                  className="w-8 h-8 rounded-full"
+                  src={userProfile.avatarUrl}
+                  alt={userProfile.fullName}
+                  className="w-8 h-8 rounded-full object-cover"
                 />
-                <span className="text-sm font-medium text-gray-700">Alex M.</span>
+                <span className="text-sm font-medium text-gray-700">{userProfile.fullName}</span>
               </div>
             </div>
           </div>
@@ -205,8 +224,24 @@ export function Dashboard({ onNavigate, language, onLanguageChange }: DashboardP
               </button>
             </div>
 
-            <div className="grid grid-cols-3 gap-6">
-              {activeSubscriptions.map((sub, index) => (
+            {activeSubscriptions.length === 0 ? (
+              <div className="col-span-3 flex flex-col items-center justify-center py-20 bg-white rounded-xl border-2 border-dashed border-gray-300">
+                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+                  <CreditCard className="w-10 h-10 text-gray-400" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">{translations[language].noSubscriptions}</h3>
+                <p className="text-gray-500 mb-6 text-center max-w-md">{translations[language].noSubscriptionsDesc}</p>
+                <button 
+                  onClick={() => onNavigate('add')}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2"
+                >
+                  {translations[language].getStarted}
+                  <ArrowRight className="w-5 h-5" />
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-6">
+                {activeSubscriptions.map((sub, index) => (
                 <div 
                   key={sub.id} 
                   className="bg-white rounded-xl p-6 border border-gray-200 hover:shadow-lg transition-shadow cursor-pointer"
@@ -273,7 +308,8 @@ export function Dashboard({ onNavigate, language, onLanguageChange }: DashboardP
                   </div>
                 </div>
               ))}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Volume2, CheckCircle } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Volume2, CheckCircle, AlertCircle, Phone, Camera } from 'lucide-react';
 import logo from 'figma:asset/19c0aca0abb708d38d652971739de366b369956a.png';
+import { signUp } from '../lib/supabaseApi';
 
 interface RegisterProps {
   onRegister: () => void;
@@ -14,10 +15,14 @@ const translations = {
     createAccount: 'Create Account',
     signUp: 'Join SubShare and start managing subscriptions',
     fullName: 'FULL NAME',
+    phone: 'PHONE NUMBER (OPTIONAL)',
+    profilePhoto: 'PROFILE PHOTO (OPTIONAL)',
+    choosePhoto: 'Choose Photo',
     emailAddress: 'EMAIL ADDRESS',
     password: 'PASSWORD',
     confirmPassword: 'CONFIRM PASSWORD',
     register: 'CREATE ACCOUNT',
+    registering: 'CREATING...',
     alreadyHaveAccount: 'Already have an account?',
     signIn: 'Sign In',
     namePlaceholder: 'John Doe',
@@ -26,16 +31,26 @@ const translations = {
     dismiss: 'DISMISS',
     tagline: 'Management for Everyone',
     passwordRequirements: 'At least 8 characters',
-    agreeToTerms: 'By creating an account, you agree to our Terms & Privacy Policy'
+    agreeToTerms: 'By creating an account, you agree to our Terms & Privacy Policy',
+    errorRequired: 'Please fill in all fields',
+    errorInvalidEmail: 'Please enter a valid email address',
+    errorPasswordLength: 'Password must be at least 8 characters',
+    errorPasswordMatch: 'Passwords do not match',
+    errorEmailExists: 'This email is already registered',
+    errorGeneric: 'An error occurred. Please try again.'
   },
   es: {
     createAccount: 'Crear Cuenta',
     signUp: 'Únete a SubShare y comienza a gestionar suscripciones',
     fullName: 'NOMBRE COMPLETO',
+    phone: 'NÚMERO DE TELÉFONO (OPCIONAL)',
+    profilePhoto: 'FOTO DE PERFIL (OPCIONAL)',
+    choosePhoto: 'Elegir Foto',
     emailAddress: 'CORREO ELECTRÓNICO',
     password: 'CONTRASEÑA',
     confirmPassword: 'CONFIRMAR CONTRASEÑA',
     register: 'CREAR CUENTA',
+    registering: 'CREANDO...',
     alreadyHaveAccount: '¿Ya tienes una cuenta?',
     signIn: 'Iniciar Sesión',
     namePlaceholder: 'Juan Pérez',
@@ -44,7 +59,13 @@ const translations = {
     dismiss: 'DESCARTAR',
     tagline: 'Gestión para Todos',
     passwordRequirements: 'Mínimo 8 caracteres',
-    agreeToTerms: 'Al crear una cuenta, aceptas nuestros Términos y Política de Privacidad'
+    agreeToTerms: 'Al crear una cuenta, aceptas nuestros Términos y Política de Privacidad',
+    errorRequired: 'Por favor completa todos los campos',
+    errorInvalidEmail: 'Por favor ingresa un correo válido',
+    errorPasswordLength: 'La contraseña debe tener al menos 8 caracteres',
+    errorPasswordMatch: 'Las contraseñas no coinciden',
+    errorEmailExists: 'Este correo electrónico ya está registrado',
+    errorGeneric: 'Ocurrió un error. Por favor intenta de nuevo.'
   }
 };
 
@@ -53,14 +74,78 @@ export function Register({ onRegister, onBackToLogin, language, onLanguageChange
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [phone, setPhone] = useState('');
+  const [profilePhoto, setProfilePhoto] = useState<string>('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const t = translations[language];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfilePhoto(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const getInitialAvatar = (name: string) => {
+    const initial = name.charAt(0).toUpperCase();
+    return `https://api.dicebear.com/7.x/initials/svg?seed=${initial}`;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onRegister();
+    setError('');
+
+    // Validar campos vacíos
+    if (!fullName || !email || !password || !confirmPassword) {
+      setError(t.errorRequired);
+      return;
+    }
+
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError(t.errorInvalidEmail);
+      return;
+    }
+
+    // Validar longitud de contraseña
+    if (password.length < 8) {
+      setError(t.errorPasswordLength);
+      return;
+    }
+
+    // Validar que las contraseñas coincidan
+    if (password !== confirmPassword) {
+      setError(t.errorPasswordMatch);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Si no hay foto, usar avatar con inicial
+      const avatarUrl = profilePhoto || getInitialAvatar(fullName);
+      await signUp(email, password, fullName, phone, avatarUrl);
+      onRegister();
+    } catch (err: any) {
+      console.error('Register error:', err);
+      if (err.message?.includes('already registered') || err.message?.includes('User already registered')) {
+        setError(t.errorEmailExists);
+      } else {
+        setError(t.errorGeneric);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const toggleTheme = () => {
@@ -117,6 +202,14 @@ export function Register({ onRegister, onBackToLogin, language, onLanguageChange
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Error Message */}
+              {error && (
+                <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-4 flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-300">{error}</p>
+                </div>
+              )}
+
               {/* Full Name Input */}
               <div>
                 <label className="block text-xs font-semibold text-slate-400 mb-2 tracking-wider">
@@ -131,8 +224,58 @@ export function Register({ onRegister, onBackToLogin, language, onLanguageChange
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     placeholder={t.namePlaceholder}
+                    required
                     className="w-full pl-12 pr-4 py-3.5 bg-slate-900/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
                   />
+                </div>
+              </div>
+
+              {/* Phone Input */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-2 tracking-wider">
+                  {t.phone}
+                </label>
+                <div className="relative">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">
+                    <Phone className="w-5 h-5" />
+                  </div>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+34 612 345 678"
+                    className="w-full pl-12 pr-4 py-3.5 bg-slate-900/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Profile Photo Input */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-2 tracking-wider">
+                  {t.profilePhoto}
+                </label>
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-full bg-slate-800/50 border border-slate-700/50 flex items-center justify-center overflow-hidden">
+                    {profilePhoto ? (
+                      <img src={profilePhoto} alt="Profile" className="w-full h-full object-cover" />
+                    ) : (
+                      <Camera className="w-6 h-6 text-slate-500" />
+                    )}
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoChange}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-4 py-2 bg-slate-800/50 border border-slate-700/50 text-slate-300 rounded-lg hover:bg-slate-700/50 transition-all text-sm"
+                  >
+                    {t.choosePhoto}
+                  </button>
                 </div>
               </div>
 
@@ -150,6 +293,7 @@ export function Register({ onRegister, onBackToLogin, language, onLanguageChange
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder={t.emailPlaceholder}
+                    required
                     className="w-full pl-12 pr-4 py-3.5 bg-slate-900/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
                   />
                 </div>
@@ -169,6 +313,8 @@ export function Register({ onRegister, onBackToLogin, language, onLanguageChange
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
+                    required
+                    minLength={8}
                     className="w-full pl-12 pr-12 py-3.5 bg-slate-900/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
                   />
                   <button
@@ -200,6 +346,8 @@ export function Register({ onRegister, onBackToLogin, language, onLanguageChange
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••••"
+                    required
+                    minLength={8}
                     className="w-full pl-12 pr-12 py-3.5 bg-slate-900/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
                   />
                   <button
@@ -219,9 +367,10 @@ export function Register({ onRegister, onBackToLogin, language, onLanguageChange
               {/* Register Button */}
               <button
                 type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3.5 px-6 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30"
+                disabled={loading}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white font-semibold py-3.5 px-6 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30"
               >
-                {t.register}
+                {loading ? t.registering : t.register}
                 <ArrowRight className="w-5 h-5" />
               </button>
 
@@ -289,6 +438,14 @@ export function Register({ onRegister, onBackToLogin, language, onLanguageChange
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Error Message */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            )}
+
             {/* Full Name Input */}
             <div>
               <label className="block text-xs font-semibold text-gray-900 mb-2 tracking-wider">
@@ -303,8 +460,58 @@ export function Register({ onRegister, onBackToLogin, language, onLanguageChange
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder={t.namePlaceholder}
+                  required
                   className="w-full pl-12 pr-4 py-3.5 bg-white border-2 border-gray-900 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                 />
+              </div>
+            </div>
+
+            {/* Phone Input */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-900 mb-2 tracking-wider">
+                {t.phone}
+              </label>
+              <div className="relative">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                  <Phone className="w-5 h-5" />
+                </div>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+34 612 345 678"
+                  className="w-full pl-12 pr-4 py-3.5 bg-white border-2 border-gray-900 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Profile Photo Input */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-900 mb-2 tracking-wider">
+                {t.profilePhoto}
+              </label>
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-full bg-gray-100 border-2 border-gray-900 flex items-center justify-center overflow-hidden">
+                  {profilePhoto ? (
+                    <img src={profilePhoto} alt="Profile" className="w-full h-full object-cover" />
+                  ) : (
+                    <Camera className="w-6 h-6 text-gray-400" />
+                  )}
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoChange}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-4 py-2 bg-white border-2 border-gray-900 text-gray-900 rounded-lg hover:bg-gray-50 transition-all text-sm font-medium"
+                >
+                  {t.choosePhoto}
+                </button>
               </div>
             </div>
 
@@ -322,6 +529,7 @@ export function Register({ onRegister, onBackToLogin, language, onLanguageChange
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder={t.emailPlaceholder}
+                  required
                   className="w-full pl-12 pr-4 py-3.5 bg-white border-2 border-gray-900 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                 />
               </div>
@@ -341,6 +549,8 @@ export function Register({ onRegister, onBackToLogin, language, onLanguageChange
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
+                  required
+                  minLength={8}
                   className="w-full pl-12 pr-12 py-3.5 bg-white border-2 border-gray-900 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                 />
                 <button
@@ -372,6 +582,8 @@ export function Register({ onRegister, onBackToLogin, language, onLanguageChange
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="••••••••"
+                  required
+                  minLength={8}
                   className="w-full pl-12 pr-12 py-3.5 bg-white border-2 border-gray-900 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                 />
                 <button
@@ -391,9 +603,10 @@ export function Register({ onRegister, onBackToLogin, language, onLanguageChange
             {/* Register Button */}
             <button
               type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3.5 px-6 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl"
+              disabled={loading}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white font-semibold py-3.5 px-6 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl"
             >
-              {t.register}
+              {loading ? t.registering : t.register}
               <ArrowRight className="w-5 h-5" />
             </button>
 

@@ -23,13 +23,21 @@ export interface MemberWithProfile extends SubscriptionMember {
 // AUTH FUNCTIONS
 // ========================================
 
-export async function signUp(email: string, password: string, fullName: string) {
+export async function signUp(
+  email: string, 
+  password: string, 
+  fullName: string, 
+  phone?: string, 
+  avatarUrl?: string
+) {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: {
         full_name: fullName,
+        phone: phone || '',
+        avatar_url: avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${fullName.charAt(0).toUpperCase()}`,
       },
     },
   });
@@ -51,6 +59,12 @@ export async function signIn(email: string, password: string) {
 export async function signOut() {
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
+}
+
+export async function resetPassword(email: string) {
+  const { error } = await supabase.auth.resetPasswordForEmail(email);
+  if (error) throw error;
+  return true;
 }
 
 export async function getCurrentUser() {
@@ -121,6 +135,40 @@ export async function getSubscriptions() {
   return data;
 }
 
+export async function getUserSubscriptions() {
+  const user = await getCurrentUser();
+  if (!user) throw new Error('User not authenticated');
+
+  // Get subscription_members where user is a member
+  const { data: memberData, error: memberError } = await supabase
+    .from('subscription_members')
+    .select('subscription_id')
+    .eq('user_id', user.id);
+
+  if (memberError) throw memberError;
+  if (!memberData || memberData.length === 0) return [];
+
+  const subscriptionIds = memberData
+    .map(m => m.subscription_id)
+    .filter((id): id is string => id !== null);
+
+  if (subscriptionIds.length === 0) return [];
+
+  // Get subscriptions data
+  const { data, error } = await supabase
+    .from('subscriptions')
+    .select(`
+      *,
+      owner:profiles!subscriptions_owner_id_fkey(*)
+    `)
+    .in('id', subscriptionIds)
+    .eq('is_active', true)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data;
+}
+
 export async function getSubscriptionById(subscriptionId: string) {
   const { data, error } = await supabase
     .from('subscriptions')
@@ -158,8 +206,22 @@ export async function createSubscription(subscription: {
 
   if (error) throw error;
 
-  // Add owner as a member
-  await addMemberToSubscription(data.id, user.id, subscription.price / (subscription.total_members || 1), true);
+  // Add owner as a member directly (avoiding RLS recursion issues)
+  const memberAmount = subscription.price / (subscription.total_members || 1);
+  const { error: memberError } = await supabase
+    .from('subscription_members')
+    .insert({
+      subscription_id: data.id,
+      user_id: user.id,
+      amount: memberAmount,
+      is_owner: true,
+    });
+
+  if (memberError) {
+    // If member insertion fails, delete the subscription to maintain consistency
+    await supabase.from('subscriptions').delete().eq('id', data.id);
+    throw memberError;
+  }
 
   return data;
 }

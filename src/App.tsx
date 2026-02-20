@@ -7,6 +7,7 @@ import { Payments } from './components/Payments';
 import { Settings } from './components/Settings';
 import { Login } from './components/Login';
 import { Register } from './components/Register';
+import { signOut } from './lib/supabaseApi';
 
 export type View = 'dashboard' | 'details' | 'add' | 'members' | 'payments' | 'settings';
 
@@ -68,6 +69,16 @@ function App() {
     setShowRegister(false);
   };
 
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      setIsLoggedIn(false);
+      setCurrentView('dashboard');
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
+  };
+
   if (!isLoggedIn) {
     if (showRegister) {
       return (
@@ -112,7 +123,7 @@ function App() {
         <Payments onNavigate={handleViewChange} language={language} onLanguageChange={setLanguage} />
       )}
       {currentView === 'settings' && (
-        <Settings onNavigate={handleViewChange} language={language} onLanguageChange={setLanguage} />
+        <Settings onNavigate={handleViewChange} language={language} onLanguageChange={setLanguage} onLogout={handleLogout} />
       )}
     </div>
   );

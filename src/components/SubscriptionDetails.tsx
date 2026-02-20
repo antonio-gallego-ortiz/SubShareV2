@@ -2,7 +2,8 @@ import { ArrowLeft, Edit, UserPlus, Calendar, RefreshCw, Users as UsersIcon, Mor
 import type { View, Subscription, Member } from '../App';
 import { LanguageSelector } from './LanguageSelector';
 import { NotificationPanel } from './NotificationPanel';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { getCurrentProfile } from '../lib/supabaseApi';
 
 interface SubscriptionDetailsProps {
   subscription: Subscription;
@@ -11,106 +12,20 @@ interface SubscriptionDetailsProps {
   onLanguageChange: (lang: 'en' | 'es') => void;
 }
 
-// Mock data para los miembros con más detalles
-const detailedMembers: Member[] = [
-  {
-    id: '1',
-    name: 'Alice (Owner)',
-    email: 'alice.smith@example.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alice',
-    amount: 5.00,
-    status: 'paid',
-    isOwner: true
-  },
-  {
-    id: '2',
-    name: 'Bob Jenkins',
-    email: 'bob.j@provider.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Bob',
-    amount: 5.00,
-    status: 'pending',
-    isOwner: false
-  },
-  {
-    id: '3',
-    name: 'Charlie Davis',
-    email: 'charlie.d@site.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Charlie',
-    amount: 5.00,
-    status: 'paid',
-    isOwner: false
-  },
-  {
-    id: '4',
-    name: 'Diana Martinez',
-    email: 'diana.m@email.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Diana',
-    amount: 4.99,
-    status: 'paid',
-    isOwner: false
-  },
-];
+// Initialize with empty members - will be populated from subscription prop or database
+const detailedMembers: Member[] = [];
 
-// Mock data para el historial de renovaciones
-const renewalHistory = [
-  {
-    id: '1',
-    date: 'September 15, 2023',
-    period: 'Sep 15 - Oct 15, 2023',
-    totalAmount: 19.99,
-    status: 'completed',
-    payments: [
-      { memberId: '1', memberName: 'Alice', amount: 5.00, status: 'paid', paidDate: 'Sep 15, 2023' },
-      { memberId: '2', memberName: 'Bob', amount: 5.00, status: 'paid', paidDate: 'Sep 16, 2023' },
-      { memberId: '3', memberName: 'Charlie', amount: 5.00, status: 'paid', paidDate: 'Sep 15, 2023' },
-      { memberId: '4', memberName: 'Diana', amount: 4.99, status: 'paid', paidDate: 'Sep 15, 2023' },
-    ]
-  },
-  {
-    id: '2',
-    date: 'August 15, 2023',
-    period: 'Aug 15 - Sep 15, 2023',
-    totalAmount: 19.99,
-    status: 'completed',
-    payments: [
-      { memberId: '1', memberName: 'Alice', amount: 5.00, status: 'paid', paidDate: 'Aug 15, 2023' },
-      { memberId: '2', memberName: 'Bob', amount: 5.00, status: 'paid', paidDate: 'Aug 18, 2023' },
-      { memberId: '3', memberName: 'Charlie', amount: 5.00, status: 'paid', paidDate: 'Aug 15, 2023' },
-      { memberId: '4', memberName: 'Diana', amount: 4.99, status: 'paid', paidDate: 'Aug 16, 2023' },
-    ]
-  },
-  {
-    id: '3',
-    date: 'July 15, 2023',
-    period: 'Jul 15 - Aug 15, 2023',
-    totalAmount: 19.99,
-    status: 'completed',
-    payments: [
-      { memberId: '1', memberName: 'Alice', amount: 5.00, status: 'paid', paidDate: 'Jul 15, 2023' },
-      { memberId: '2', memberName: 'Bob', amount: 5.00, status: 'paid', paidDate: 'Jul 20, 2023' },
-      { memberId: '3', memberName: 'Charlie', amount: 5.00, status: 'paid', paidDate: 'Jul 16, 2023' },
-      { memberId: '4', memberName: 'Diana', amount: 4.99, status: 'paid', paidDate: 'Jul 15, 2023' },
-    ]
-  },
-  {
-    id: '4',
-    date: 'October 15, 2023',
-    period: 'Oct 15 - Nov 15, 2023',
-    totalAmount: 19.99,
-    status: 'pending',
-    payments: [
-      { memberId: '1', memberName: 'Alice', amount: 5.00, status: 'paid', paidDate: 'Oct 15, 2023' },
-      { memberId: '2', memberName: 'Bob', amount: 5.00, status: 'pending', paidDate: '' },
-      { memberId: '3', memberName: 'Charlie', amount: 5.00, status: 'paid', paidDate: 'Oct 15, 2023' },
-      { memberId: '4', memberName: 'Diana', amount: 4.99, status: 'paid', paidDate: 'Oct 16, 2023' },
-    ]
-  },
-];
+// Initialize with empty renewal history - will be loaded from database
+const renewalHistory: any[] = [];
 
 export function SubscriptionDetails({ subscription, onNavigate, language, onLanguageChange }: SubscriptionDetailsProps) {
   const [showDetails, setShowDetails] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [openMemberMenu, setOpenMemberMenu] = useState<string | null>(null);
+  const [userProfile, setUserProfile] = useState<{
+    fullName: string;
+    avatarUrl: string;
+  }>({ fullName: '', avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=User' });
   
   // Edit form states
   const [editName, setEditName] = useState('Netflix Family Plan');
@@ -121,6 +36,24 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
   const [editPassword, setEditPassword] = useState('Family2024!Secure');
   const [editMembers, setEditMembers] = useState(detailedMembers);
   const [newMemberEmail, setNewMemberEmail] = useState('');
+
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        const profile = await getCurrentProfile();
+        if (profile) {
+          setUserProfile({
+            fullName: profile.full_name || 'User',
+            avatarUrl: profile.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=User'
+          });
+        }
+      } catch (error) {
+        console.error('Error loading profile:', error);
+      }
+    };
+
+    loadUserProfile();
+  }, []);
 
   const handleSaveChanges = () => {
     // Aquí iría la lógica para guardar los cambios
@@ -221,9 +154,9 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
                 
                 <img
                   onClick={() => onNavigate('settings')}
-                  src="https://api.dicebear.com/7.x/avataaars/svg?seed=User"
-                  alt="User"
-                  className="w-8 h-8 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
+                  src={userProfile.avatarUrl}
+                  alt={userProfile.fullName}
+                  className="w-8 h-8 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all object-cover"
                 />
               </div>
             </div>
