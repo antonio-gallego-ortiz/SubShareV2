@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Search, Bell, Save, User, Lock, CreditCard as CreditCardIcon, Globe, Shield, Mail, Smartphone, LogOut, Eye } from 'lucide-react';
+import { Bell, Save, User, Lock, CreditCard as CreditCardIcon, Globe, Shield, Mail, Smartphone, LogOut, Eye } from 'lucide-react';
 import type { View } from '../App';
-import { LanguageSelector } from './LanguageSelector';
-import { NotificationPanel } from './NotificationPanel';
+import { Navbar } from './Navbar';
 import { getCurrentProfile, getCurrentUser, updateProfile } from '../lib/supabaseApi';
 
 interface SettingsProps {
@@ -276,71 +275,7 @@ export function Settings({ onNavigate, language, onLanguageChange, onLogout }: S
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-8">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
-                  S
-                </div>
-                <div>
-                  <div className="font-semibold text-gray-900">SubShare</div>
-                  
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder={t.search}
-                  className="pl-4 pr-4 py-2 border border-gray-200 rounded-lg bg-gray-50 w-64 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              
-              <LanguageSelector language={language} onLanguageChange={onLanguageChange} />
-              <NotificationPanel language={language} />
-              <div 
-                onClick={() => onNavigate('settings')}
-                className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-lg px-2 py-1 transition-colors"
-              >
-                <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold text-sm">
-                  {fullName ? fullName.charAt(0).toUpperCase() : 'U'}
-                </div>
-                <span className="text-sm font-medium text-gray-700">{fullName || 'User'}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Navigation */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6">
-          <nav className="flex gap-8">
-            <button 
-              onClick={() => onNavigate('dashboard')}
-              className="py-4 text-sm text-gray-600 hover:text-gray-900"
-            >
-              Dashboard
-            </button>
-            
-            
-            <button 
-              onClick={() => onNavigate('payments')}
-              className="py-4 text-sm text-gray-600 hover:text-gray-900"
-            >
-              Payments
-            </button>
-            <button className="py-4 text-sm text-blue-600 font-medium border-b-2 border-blue-600">
-              Settings
-            </button>
-          </nav>
-        </div>
-      </div>
+      <Navbar onNavigate={onNavigate} currentView="settings" language={language} onLanguageChange={onLanguageChange} />
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 py-8">

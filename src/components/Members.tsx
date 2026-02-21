@@ -1,9 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, Bell, UserPlus, Mail, MoreVertical, Shield, Clock, CheckCircle, Trash2 } from 'lucide-react';
+import { UserPlus, Mail, MoreVertical, Shield, Clock, CheckCircle, Trash2 } from 'lucide-react';
 import type { View } from '../App';
-import { LanguageSelector } from './LanguageSelector';
-import { NotificationPanel } from './NotificationPanel';
-import { getCurrentProfile } from '../lib/supabaseApi';
+import { Navbar } from './Navbar';
 
 interface MembersProps {
   onNavigate: (view: View) => void;
@@ -102,35 +100,12 @@ export function Members({ onNavigate, language, onLanguageChange }: MembersProps
   const [searchTerm, setSearchTerm] = useState('');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [membersData, setMembersData] = useState<MemberData[]>(members);
-  const [userProfile, setUserProfile] = useState<{
-    fullName: string;
-    avatarUrl: string;
-  }>({ fullName: '', avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=User' });
   const menuRef = useRef<HTMLDivElement>(null);
   const t = translations[language];
 
   // Usuario actual es siempre el owner (Alex Martinez - id: '1')
   const currentUser = membersData.find(m => m.id === '1');
   const isCurrentUserOwner = currentUser?.role === 'owner';
-
-  // Cargar perfil del usuario
-  useEffect(() => {
-    const loadUserProfile = async () => {
-      try {
-        const profile = await getCurrentProfile();
-        if (profile) {
-          setUserProfile({
-            fullName: profile.full_name || 'User',
-            avatarUrl: profile.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=User'
-          });
-        }
-      } catch (error) {
-        console.error('Error loading profile:', error);
-      }
-    };
-
-    loadUserProfile();
-  }, []);
 
   // Cerrar menú al hacer clic fuera
   useEffect(() => {
@@ -180,82 +155,7 @@ export function Members({ onNavigate, language, onLanguageChange }: MembersProps
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-8">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
-                  S
-                </div>
-                <div>
-                  <div className="font-semibold text-gray-900">SubShare</div>
-                  <div className="text-xs text-gray-500">Family Management</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder={t.search}
-                  className="pl-4 pr-4 py-2 border border-gray-200 rounded-lg bg-gray-50 w-64 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <LanguageSelector language={language} onLanguageChange={onLanguageChange} />
-              <NotificationPanel language={language} />
-              <div 
-                onClick={() => onNavigate('settings')}
-                className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-lg px-2 py-1 transition-colors"
-              >
-                <img
-                  src={userProfile.avatarUrl}
-                  alt={userProfile.fullName}
-                  className="w-8 h-8 rounded-full object-cover"
-                />
-                <span className="text-sm font-medium text-gray-700">{userProfile.fullName}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Navigation */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6">
-          <nav className="flex gap-8">
-            <button 
-              onClick={() => onNavigate('dashboard')}
-              className="py-4 text-sm text-gray-600 hover:text-gray-900"
-            >
-              Dashboard
-            </button>
-            <button 
-              onClick={() => onNavigate('dashboard')}
-              className="py-4 text-sm text-gray-600 hover:text-gray-900"
-            >
-              Subscriptions
-            </button>
-            
-            <button 
-              onClick={() => onNavigate('payments')}
-              className="py-4 text-sm text-gray-600 hover:text-gray-900"
-            >
-              Payments
-            </button>
-            <button 
-              onClick={() => onNavigate('settings')}
-              className="py-4 text-sm text-gray-600 hover:text-gray-900"
-            >
-              Settings
-            </button>
-          </nav>
-        </div>
-      </div>
+      <Navbar onNavigate={onNavigate} currentView="members" language={language} onLanguageChange={onLanguageChange} />
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 py-8">

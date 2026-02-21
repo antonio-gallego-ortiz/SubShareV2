@@ -1,8 +1,7 @@
-import { Bell, Search, Settings, CreditCard, Users, MoreVertical, ArrowRight } from 'lucide-react';
+import { CreditCard, ArrowRight } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import type { View, Subscription } from '../App';
-import { LanguageSelector } from './LanguageSelector';
-import { NotificationPanel } from './NotificationPanel';
+import { Navbar } from './Navbar';
 import { getCurrentProfile, getUserSubscriptions, getSubscriptionMembers } from '../lib/supabaseApi';
 
 interface DashboardProps {
@@ -58,10 +57,6 @@ const translations = {
 };
 
 export function Dashboard({ onNavigate, language, onLanguageChange }: DashboardProps) {
-  const [userProfile, setUserProfile] = useState<{
-    fullName: string;
-    avatarUrl: string;
-  }>({ fullName: '', avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=User' });
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -74,13 +69,6 @@ export function Dashboard({ onNavigate, language, onLanguageChange }: DashboardP
           getUserSubscriptions()
         ]);
         
-        if (profile) {
-          setUserProfile({
-            fullName: profile.full_name || 'User',
-            avatarUrl: profile.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=User'
-          });
-        }
-
         if (subs) {
           // Transform database subscriptions to match UI format
           const transformedSubs = await Promise.all(subs.map(async (sub: any) => {
@@ -128,89 +116,12 @@ export function Dashboard({ onNavigate, language, onLanguageChange }: DashboardP
   const activeSubscriptions = subscriptions.filter(sub => sub.isActive === true);
   
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      {/* Sidebar */}
-      <div className="w-56 bg-white border-r border-gray-200 flex flex-col">
-        <div className="p-4 border-b border-gray-200">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
-              S
-            </div>
-            <div>
-              <div className="font-semibold text-gray-900">SubShare</div>
-              
-            </div>
-          </div>
-        </div>
+    <div className="min-h-screen bg-gray-50">
+      <Navbar onNavigate={onNavigate} currentView="dashboard" language={language} onLanguageChange={onLanguageChange} />
 
-        <nav className="flex-1 p-4">
-          <button className="w-full flex items-center gap-3 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg mb-1">
-            <div className="w-5 h-5 flex items-center justify-center font-bold">
-              S
-            </div>
-            {translations[language].dashboard}
-          </button>
-          <button 
-            onClick={() => onNavigate('payments')}
-            className="w-full flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-lg mb-1"
-          >
-            <CreditCard className="w-5 h-5" />
-            {translations[language].payments}
-          </button>
-          <button 
-            onClick={() => onNavigate('settings')}
-            className="w-full flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-lg"
-          >
-            <Settings className="w-5 h-5" />
-            {translations[language].settings}
-          </button>
-        </nav>
-
-        <div className="p-4 border-t border-gray-200">
-          <button className="w-full flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 mb-3">
-            <Users className="w-4 h-4" />
-            {translations[language].inviteFriend}
-          </button>
-          <button className="w-full flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-lg text-sm">
-            <div className="w-5 h-5 bg-gray-200 rounded-full flex items-center justify-center text-xs">?</div>
-            {translations[language].helpCenter}
-          </button>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto">
-        <div className="border-b border-gray-200 bg-white px-8 py-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-xl font-semibold text-gray-900">{translations[language].overview}</h1>
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder={translations[language].search}
-                  className="pl-4 pr-4 py-2 border border-gray-200 rounded-lg bg-gray-50 w-64 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <LanguageSelector language={language} onLanguageChange={onLanguageChange} />
-              <NotificationPanel language={language} />
-              <div 
-                onClick={() => onNavigate('settings')}
-                className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-lg px-2 py-1 transition-colors"
-              >
-                <img
-                  src={userProfile.avatarUrl}
-                  alt={userProfile.fullName}
-                  className="w-8 h-8 rounded-full object-cover"
-                />
-                <span className="text-sm font-medium text-gray-700">{userProfile.fullName}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-8">
-          {/* Active Subscriptions */}
-          <div className="mb-8">
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Active Subscriptions */}
+        <div className="mb-8">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="text-2xl font-semibold text-gray-900">{translations[language].activeSubscriptions}</h3>
@@ -311,7 +222,6 @@ export function Dashboard({ onNavigate, language, onLanguageChange }: DashboardP
               </div>
             )}
           </div>
-        </div>
       </div>
     </div>
   );

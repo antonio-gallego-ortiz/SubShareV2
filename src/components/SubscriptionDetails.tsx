@@ -1,9 +1,7 @@
 import { ArrowLeft, Edit, UserPlus, Calendar, RefreshCw, Users as UsersIcon, MoreVertical, Send, Info, Eye, EyeOff, Trash2, Save, X as CloseIcon } from 'lucide-react';
 import type { View, Subscription, Member } from '../App';
-import { LanguageSelector } from './LanguageSelector';
-import { NotificationPanel } from './NotificationPanel';
-import { useState, useEffect } from 'react';
-import { getCurrentProfile } from '../lib/supabaseApi';
+import { Navbar } from './Navbar';
+import { useState } from 'react';
 
 interface SubscriptionDetailsProps {
   subscription: Subscription;
@@ -150,11 +148,6 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
   const [showDetails, setShowDetails] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [openMemberMenu, setOpenMemberMenu] = useState<string | null>(null);
-  const [userProfile, setUserProfile] = useState<{
-    fullName: string;
-    avatarUrl: string;
-  }>({ fullName: '', avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=User' });
-  
   // Edit form states
   const [editName, setEditName] = useState('Netflix Family Plan');
   const [editPrice, setEditPrice] = useState('19.99');
@@ -164,24 +157,6 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
   const [editPassword, setEditPassword] = useState('Family2024!Secure');
   const [editMembers, setEditMembers] = useState(detailedMembers);
   const [newMemberEmail, setNewMemberEmail] = useState('');
-
-  useEffect(() => {
-    const loadUserProfile = async () => {
-      try {
-        const profile = await getCurrentProfile();
-        if (profile) {
-          setUserProfile({
-            fullName: profile.full_name || 'User',
-            avatarUrl: profile.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=User'
-          });
-        }
-      } catch (error) {
-        console.error('Error loading profile:', error);
-      }
-    };
-
-    loadUserProfile();
-  }, []);
 
   const handleSaveChanges = () => {
     // Aquí iría la lógica para guardar los cambios
@@ -237,60 +212,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
   
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-8">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
-                  S
-                </div>
-                <span className="font-semibold text-gray-900">SubShare</span>
-              </div>
-
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder={t.search}
-                  className="pl-4 pr-4 py-1.5 border border-gray-200 rounded-lg bg-gray-50 w-48 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-6">
-              <button 
-                onClick={() => onNavigate('dashboard')}
-                className="text-sm text-gray-600 hover:text-gray-900"
-              >
-                {t.dashboard}
-              </button>
-              <button className="text-sm text-blue-600 font-medium border-b-2 border-blue-600 pb-4 -mb-4">
-                {t.subscriptions}
-              </button>
-              
-              <button 
-                onClick={() => onNavigate('settings')}
-                className="text-sm text-gray-600 hover:text-gray-900"
-              >
-                {t.settings}
-              </button>
-              
-              <div className="flex items-center gap-3 pl-6 border-l border-gray-200">
-                <LanguageSelector language={language} onLanguageChange={onLanguageChange} />
-                <NotificationPanel language={language} />
-                
-                <img
-                  onClick={() => onNavigate('settings')}
-                  src={userProfile.avatarUrl}
-                  alt={userProfile.fullName}
-                  className="w-8 h-8 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all object-cover"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <Navbar onNavigate={onNavigate} currentView="details" language={language} onLanguageChange={onLanguageChange} />
 
       {/* Breadcrumb */}
       <div className="max-w-6xl mx-auto px-6 py-4">

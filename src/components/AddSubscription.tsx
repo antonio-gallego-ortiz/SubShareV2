@@ -1,9 +1,8 @@
-import { useState, useEffect } from 'react';
-import { Search, UserPlus, Calendar, Trash2, Info, ShieldCheck } from 'lucide-react';
+import { useState } from 'react';
+import { UserPlus, Calendar, Trash2, Info, ShieldCheck } from 'lucide-react';
 import type { View } from '../App';
-import { LanguageSelector } from './LanguageSelector';
-import { NotificationPanel } from './NotificationPanel';
-import { getCurrentProfile, createSubscription } from '../lib/supabaseApi';
+import { Navbar } from './Navbar';
+import { createSubscription } from '../lib/supabaseApi';
 
 interface AddSubscriptionProps {
   onNavigate: (view: View) => void;
@@ -120,31 +119,8 @@ export function AddSubscription({ onNavigate, language, onLanguageChange }: AddS
   const [members, setMembers] = useState<InvitedMember[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [userProfile, setUserProfile] = useState<{
-    fullName: string;
-    avatarUrl: string;
-  }>({ fullName: '', avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=User' });
-
   const totalMembers = members.length;
   const costPerPerson = totalMembers > 0 ? parseFloat(price) / totalMembers : 0;
-
-  useEffect(() => {
-    const loadUserProfile = async () => {
-      try {
-        const profile = await getCurrentProfile();
-        if (profile) {
-          setUserProfile({
-            fullName: profile.full_name || 'User',
-            avatarUrl: profile.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=User'
-          });
-        }
-      } catch (error) {
-        console.error('Error loading profile:', error);
-      }
-    };
-
-    loadUserProfile();
-  }, []);
 
   const handleAddMember = () => {
     if (emailInput.trim()) {
@@ -207,53 +183,7 @@ export function AddSubscription({ onNavigate, language, onLanguageChange }: AddS
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-8">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
-                  S
-                </div>
-                <span className="font-semibold text-gray-900">SubShare</span>
-              </div>
-
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder={t.searchPlaceholder}
-                  className="pl-4 pr-4 py-1.5 border border-gray-200 rounded-lg bg-gray-50 w-56 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-6">
-              <button 
-                onClick={() => onNavigate('dashboard')}
-                className="text-sm text-gray-600 hover:text-gray-900"
-              >
-                {t.dashboard}
-              </button>
-              <button className="text-sm text-blue-600 font-medium border-b-2 border-blue-600 pb-4 -mb-4">
-                {t.subscriptions}
-              </button>
-              
-              
-              <div className="flex items-center gap-3 pl-6 border-l border-gray-200">
-                <LanguageSelector language={language} onLanguageChange={onLanguageChange} />
-                <NotificationPanel language={language} />
-                <img
-                  src={userProfile.avatarUrl}
-                  alt={userProfile.fullName}
-                  onClick={() => onNavigate('settings')}
-                  className="w-8 h-8 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all object-cover"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <Navbar onNavigate={onNavigate} currentView="add" language={language} onLanguageChange={onLanguageChange} />
 
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-6 py-8">
