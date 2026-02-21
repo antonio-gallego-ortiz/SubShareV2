@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { UserPlus, Calendar, Trash2, Info, ShieldCheck } from 'lucide-react';
 import type { View } from '../App';
 import { Navbar } from './Navbar';
-import { createSubscription } from '../lib/supabaseApi';
+import { createSubscription, createInvitation, sendInvitationEmail, getCurrentProfile } from '../lib/supabaseApi';
 
 interface AddSubscriptionProps {
   onNavigate: (view: View) => void;
@@ -19,10 +19,18 @@ interface InvitedMember {
 }
 
 const services = [
-  { id: 'netflix', name: 'Netflix', logo: 'NETFLIX', color: 'bg-red-50 border-red-200' },
-  { id: 'spotify', name: 'Spotify', logo: '🎵', color: 'bg-green-50 border-green-200' },
-  { id: 'disney', name: 'Disney+', logo: '✨', color: 'bg-blue-900/10 border-blue-900/20' },
-  { id: 'custom', name: 'Custom', logo: '+', color: 'bg-gray-50 border-gray-200' },
+  { id: 'netflix',      name: 'Netflix',        color: 'bg-red-50 border-red-200',         activeBg: 'bg-red-600'    },
+  { id: 'spotify',      name: 'Spotify',        color: 'bg-green-50 border-green-200',      activeBg: 'bg-green-500'  },
+  { id: 'disney',       name: 'Disney+',        color: 'bg-blue-50 border-blue-200',        activeBg: 'bg-blue-800'   },
+  { id: 'youtube',      name: 'YouTube',        color: 'bg-red-50 border-red-200',         activeBg: 'bg-red-500'    },
+  { id: 'hbo',          name: 'HBO Max',        color: 'bg-purple-50 border-purple-200',    activeBg: 'bg-purple-700' },
+  { id: 'amazon',       name: 'Amazon Prime',   color: 'bg-yellow-50 border-yellow-200',    activeBg: 'bg-yellow-600' },
+  { id: 'apple',        name: 'Apple TV+',      color: 'bg-gray-50 border-gray-200',        activeBg: 'bg-gray-900'   },
+  { id: 'chatgpt',      name: 'ChatGPT',        color: 'bg-teal-50 border-teal-200',        activeBg: 'bg-teal-600'   },
+  { id: 'microsoft365', name: 'Microsoft 365',  color: 'bg-blue-50 border-blue-200',        activeBg: 'bg-blue-600'   },
+  { id: 'dropbox',      name: 'Dropbox',        color: 'bg-blue-50 border-blue-200',        activeBg: 'bg-blue-400'   },
+  { id: 'discord',      name: 'Discord',        color: 'bg-indigo-50 border-indigo-200',    activeBg: 'bg-indigo-500' },
+  { id: 'custom',       name: 'Custom',         color: 'bg-gray-50 border-gray-200',        activeBg: 'bg-gray-500'   },
 ];
 
 const translations = {
@@ -114,11 +122,13 @@ export function AddSubscription({ onNavigate, language, onLanguageChange }: AddS
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const [price, setPrice] = useState('15.99');
   const [nextPaymentDate, setNextPaymentDate] = useState('');
-  const [customName, setCustomName] = useState('');
+  // customName is the primary subscription name — pre-filled from selected service
+  const [customName, setCustomName] = useState('Netflix');
   const [emailInput, setEmailInput] = useState('');
   const [members, setMembers] = useState<InvitedMember[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [inviteSummary, setInviteSummary] = useState<{ sent: string[]; failed: string[] } | null>(null);
   const totalMembers = members.length;
   const costPerPerson = totalMembers > 0 ? parseFloat(price) / totalMembers : 0;
 
@@ -146,6 +156,7 @@ export function AddSubscription({ onNavigate, language, onLanguageChange }: AddS
     try {
       setLoading(true);
       setError('');
+      setInviteSummary(null);
 
       // Validate inputs
       if (!price || parseFloat(price) <= 0) {
@@ -153,23 +164,56 @@ export function AddSubscription({ onNavigate, language, onLanguageChange }: AddS
         return;
       }
 
-      const serviceName = selectedService === 'custom' 
-        ? customName || 'Custom Service' 
-        : services.find(s => s.id === selectedService)?.name || 'Subscription';
+      // The customName field is always the final subscription name.
+      // For presets it's pre-filled with the service name; user can override it.
+      const serviceName = customName.trim() || services.find(s => s.id === selectedService)?.name || 'Subscription';
 
       // Calculate total members (only invited members + owner)
       const totalMembersCount = members.length + 1; // +1 for owner
 
-      // Create subscription in database
-      await createSubscription({
+      // Create subscription in database.
+      // store the service slug as logo so Dashboard can resolve the correct color/icon.
+      const newSub = await createSubscription({
         name: serviceName,
-        logo: selectedService === 'custom' ? customName.charAt(0).toUpperCase() : services.find(s => s.id === selectedService)?.logo || 'S',
+        logo: selectedService,  // slug used by Dashboard's getServiceStyle()
         price: parseFloat(price),
         billing_cycle: billingCycle === 'monthly' ? 'month' : 'year',
         next_renewal: nextPaymentDate || undefined,
         payment_method: 'Not set',
         total_members: totalMembersCount
       });
+
+      // ── Send email invitations ──────────────────────────────────────────────
+      if (members.length > 0 && newSub) {
+        const profile = await getCurrentProfile();
+        const inviterName = profile?.full_name || profile?.email || 'Alguien';
+        const monthlyShare = parseFloat(price) / totalMembersCount;
+
+        const results = await Promise.allSettled(
+          members.map(async (member) => {
+            const inv = await createInvitation(newSub.id, member.email);
+            await sendInvitationEmail({
+              inviteeEmail: member.email,
+              inviterName,
+              subscriptionName: serviceName,
+              token: inv.token,
+              monthlyShare,
+            });
+            return member.email;
+          })
+        );
+
+        const sent: string[] = [];
+        const failed: string[] = [];
+        results.forEach((r, i) => {
+          if (r.status === 'fulfilled') sent.push(members[i].email);
+          else failed.push(members[i].email);
+        });
+
+        // Brief summary toast before navigating
+        setInviteSummary({ sent, failed });
+        await new Promise(r => setTimeout(r, 2400));
+      }
 
       // Navigate to dashboard after successful creation
       onNavigate('dashboard');
@@ -196,23 +240,55 @@ export function AddSubscription({ onNavigate, language, onLanguageChange }: AddS
             </div>
 
             {/* Select Service */}
-            
+            <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+              <h2 className="font-semibold text-gray-900 mb-4">
+                {language === 'es' ? 'Seleccionar Servicio' : 'Select Service'}
+              </h2>
+              <div className="grid grid-cols-3 gap-3">
+                {services.map((service) => (
+                  <button
+                    key={service.id}
+                    onClick={() => {
+                      setSelectedService(service.id);
+                      // Pre-fill name with the service name (user can still edit it)
+                      if (service.id === 'custom') {
+                        setCustomName('');
+                      } else {
+                        setCustomName(service.name);
+                      }
+                    }}
+                    className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border-2 transition-all text-sm font-medium ${
+                      selectedService === service.id
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : `border-gray-200 ${service.color} text-gray-700 hover:border-gray-300`
+                    }`}
+                  >
+                    <div className={`w-6 h-6 rounded flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${
+                      selectedService === service.id ? service.activeBg : 'bg-gray-400'
+                    }`}>
+                      {service.name.charAt(0)}
+                    </div>
+                    <span className="truncate">{service.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {/* Subscription Details */}
             <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
               <h2 className="font-semibold text-gray-900 mb-4">{t.subscriptionDetails}</h2>
               
-              {/* Custom Name Field */}
+              {/* Subscription Name — always primary, pre-filled from selected service */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {t.subscriptionName} <span className="text-gray-400 font-normal">{t.optional}</span>
+                  {t.subscriptionName}
                 </label>
                 <input
                   type="text"
                   value={customName}
                   onChange={(e) => setCustomName(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder={`${t.namePlaceholder.split(',')[0]}, ${services.find(s => s.id === selectedService)?.name || 'SubShare'} ${t.namePlaceholder.includes('Family') ? 'Family Plan' : 'Plan Familiar'}`}
+                  placeholder={selectedService === 'custom' ? (language === 'es' ? 'ej., Mi Plan Familiar' : 'e.g., My Family Plan') : services.find(s => s.id === selectedService)?.name || ''}
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   {t.nameHint}
@@ -225,7 +301,7 @@ export function AddSubscription({ onNavigate, language, onLanguageChange }: AddS
                     {t.totalPrice}
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">€</span>
                     <input
                       type="text"
                       value={price}
@@ -352,7 +428,7 @@ export function AddSubscription({ onNavigate, language, onLanguageChange }: AddS
               <div className="space-y-4 mb-6">
                 <div className="flex items-center justify-between pb-3 border-b border-white/20">
                   <span className="text-blue-100">{t.totalAmount}</span>
-                  <span className="font-semibold">${parseFloat(price).toFixed(2)}</span>
+                  <span className="font-semibold">€{parseFloat(price).toFixed(2)}</span>
                 </div>
                 <div className="flex items-center justify-between pb-3 border-b border-white/20">
                   <span className="text-blue-100">{t.totalMembers}</span>
@@ -361,7 +437,7 @@ export function AddSubscription({ onNavigate, language, onLanguageChange }: AddS
                 <div className="pt-2">
                   <div className="text-blue-100 text-sm mb-2">{t.costPerPerson}</div>
                   <div className="text-3xl font-bold">
-                    ${costPerPerson.toFixed(2)}
+                    €{costPerPerson.toFixed(2)}
                     <span className="text-base font-normal text-blue-100"> / {t.month}</span>
                   </div>
                 </div>
@@ -376,6 +452,22 @@ export function AddSubscription({ onNavigate, language, onLanguageChange }: AddS
                 </div>
               </div>
 
+              {/* Invitation send summary */}
+              {inviteSummary && (
+                <div className="rounded-xl p-4 mb-4 text-sm space-y-1 bg-white/10 border border-white/20">
+                  {inviteSummary.sent.length > 0 && (
+                    <p className="text-green-200">
+                      ✓ Invitaciones enviadas ({inviteSummary.sent.length})
+                    </p>
+                  )}
+                  {inviteSummary.failed.length > 0 && (
+                    <p className="text-yellow-200">
+                      ⚠ No se pudo enviar el email a {inviteSummary.failed.join(', ')} — la invitación se guardó igual.
+                    </p>
+                  )}
+                </div>
+              )}
+
               {error && (
                 <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-4 mb-4 text-white text-sm">
                   {error}
@@ -387,7 +479,11 @@ export function AddSubscription({ onNavigate, language, onLanguageChange }: AddS
                 disabled={loading}
                 className="w-full bg-white text-blue-600 font-semibold py-3 px-4 rounded-lg hover:bg-blue-50 transition-colors mb-3 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? t.creatingSubscription : t.confirmSave}
+                {loading
+                  ? inviteSummary
+                    ? 'Enviando invitaciones…'
+                    : t.creatingSubscription
+                  : t.confirmSave}
               </button>
 
               <button 

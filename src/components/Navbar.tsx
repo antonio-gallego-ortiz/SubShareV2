@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Search } from 'lucide-react';
 import type { View } from '../App';
 import { LanguageSelector } from './LanguageSelector';
 import { NotificationPanel } from './NotificationPanel';
@@ -9,18 +10,40 @@ interface NavbarProps {
   currentView: View;
   language: 'en' | 'es';
   onLanguageChange: (lang: 'en' | 'es') => void;
+  /** Controlled search value — provided by the parent view when search is functional */
+  searchTerm?: string;
+  /** Called on every keystroke when the parent wants to handle filtering */
+  onSearchChange?: (term: string) => void;
 }
 
 const navLabels = {
-  en: { dashboard: 'Dashboard', payments: 'Payments', settings: 'Settings', search: 'Search...' },
-  es: { dashboard: 'Panel', payments: 'Pagos', settings: 'Configuración', search: 'Buscar...' },
+  en: {
+    dashboard: 'Dashboard',
+    payments: 'Payments',
+    settings: 'Settings',
+    search: 'Search subscriptions...',
+  },
+  es: {
+    dashboard: 'Panel',
+    payments: 'Pagos',
+    settings: 'Configuración',
+    search: 'Buscar suscripciones...',
+  },
 };
 
-export function Navbar({ onNavigate, currentView, language, onLanguageChange }: NavbarProps) {
+export function Navbar({
+  onNavigate,
+  currentView,
+  language,
+  onLanguageChange,
+  searchTerm,
+  onSearchChange,
+}: NavbarProps) {
   const [fullName, setFullName] = useState('');
+  // Local search state used when the parent does NOT provide controlled props
+  const [localSearch, setLocalSearch] = useState('');
 
   useEffect(() => {
-    // getSession reads from local cache — no network request needed
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         const meta = session.user.user_metadata || {};
@@ -30,6 +53,17 @@ export function Navbar({ onNavigate, currentView, language, onLanguageChange }: 
   }, []);
 
   const t = navLabels[language];
+
+  // Use controlled value when parent provides it, otherwise local state
+  const isControlled = onSearchChange !== undefined;
+  const inputValue = isControlled ? (searchTerm ?? '') : localSearch;
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isControlled) {
+      onSearchChange!(e.target.value);
+    } else {
+      setLocalSearch(e.target.value);
+    }
+  };
 
   const navItems: { view: View; label: string }[] = [
     { view: 'dashboard', label: t.dashboard },
@@ -56,11 +90,24 @@ export function Navbar({ onNavigate, currentView, language, onLanguageChange }: 
 
             {/* Right controls */}
             <div className="flex items-center gap-4">
-              <input
-                type="text"
-                placeholder={t.search}
-                className="pl-4 pr-4 py-2 border border-gray-200 rounded-lg bg-gray-50 w-64 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={inputValue}
+                  onChange={handleSearch}
+                  placeholder={t.search}
+                  className="pl-9 pr-8 py-2 border border-gray-200 rounded-lg bg-gray-50 w-64 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                />
+                {inputValue && (
+                  <button
+                    onClick={() => isControlled ? onSearchChange!('') : setLocalSearch('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-bold"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
               <LanguageSelector language={language} onLanguageChange={onLanguageChange} />
               <NotificationPanel language={language} />
               <div

@@ -175,7 +175,7 @@ export function Payments({ onNavigate, language, onLanguageChange }: PaymentsPro
                 <CheckCircle className="w-5 h-5 text-green-600" />
               </div>
             </div>
-            <div className="text-3xl font-semibold text-gray-900 mb-2">${totalPaidThisMonth.toFixed(2)}</div>
+            <div className="text-3xl font-semibold text-gray-900 mb-2">€{totalPaidThisMonth.toFixed(2)}</div>
             <div className="text-sm text-green-600">↗ 7 successful transactions</div>
           </div>
 
@@ -298,7 +298,7 @@ export function Payments({ onNavigate, language, onLanguageChange }: PaymentsPro
                       <div className="text-gray-900">{transaction.member}</div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="font-semibold text-gray-900">${transaction.amount.toFixed(2)}</div>
+                      <div className="font-semibold text-gray-900">€{transaction.amount.toFixed(2)}</div>
                     </td>
                     <td className="px-6 py-4">
                       {transaction.status === 'completed' && (
@@ -377,7 +377,7 @@ export function Payments({ onNavigate, language, onLanguageChange }: PaymentsPro
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">{t.amount}:</span>
-                    <span className="text-lg font-semibold text-blue-600">${selectedTransaction.amount.toFixed(2)}</span>
+                    <span className="text-lg font-semibold text-blue-600">€{selectedTransaction.amount.toFixed(2)}</span>
                   </div>
                 </div>
               </div>

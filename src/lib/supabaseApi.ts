@@ -511,6 +511,62 @@ export async function createInvitation(
   return data;
 }
 
+/**
+ * Calls the Supabase Edge Function `send-invitation` to send an email.
+ * Falls back gracefully if the function is not deployed yet.
+ *
+ * Setup:
+ *   supabase functions deploy send-invitation
+ *   supabase secrets set RESEND_API_KEY=re_xxxxxxxxxx
+ */
+export async function sendInvitationEmail(params: {
+  inviteeEmail: string;
+  inviterName: string;
+  subscriptionName: string;
+  token: string;
+  monthlyShare: number;
+}) {
+  const appUrl = window.location.origin;
+  const inviteLink = `${appUrl}?invite=${params.token}`;
+
+  const { error } = await supabase.functions.invoke('send-invitation', {
+    body: {
+      inviteeEmail: params.inviteeEmail,
+      inviterName: params.inviterName,
+      subscriptionName: params.subscriptionName,
+      inviteLink,
+      monthlyShare: params.monthlyShare,
+    },
+  });
+
+  if (error) {
+    // Non-fatal: invitation row is already in DB; email failure shouldn't block the UI
+    console.warn('Could not send invitation email:', error.message);
+    return { sent: false, error: error.message };
+  }
+
+  return { sent: true };
+}
+
+/**
+ * Returns invitation details by token — used on the AcceptInvitation page.
+ * Works even when the user is not logged in (relies on public RLS policy on invitations).
+ */
+export async function getInvitationByToken(token: string) {
+  const { data, error } = await supabase
+    .from('invitations')
+    .select(`
+      *,
+      subscription:subscriptions(id, name, logo, price, billing_cycle, total_members),
+      inviter:profiles!invitations_inviter_id_fkey(full_name, email)
+    `)
+    .eq('token', token)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 export async function getInvitation(token: string) {
   const { data, error } = await supabase
     .from('invitations')
@@ -555,6 +611,21 @@ export async function acceptInvitation(token: string) {
     user.id,
     subscription.price / (subscription.total_members || 1)
   );
+
+  // Notify subscription owner that invitation was accepted
+  try {
+    if (!subscription.owner_id) throw new Error('No owner_id');
+    const accepterName = user.email || 'Un usuario';
+    await createNotification({
+      user_id: subscription.owner_id,
+      title: `Invitación aceptada`,
+      message: `${accepterName} se unió a ${subscription.name}.`,
+      type: 'invitation',
+      related_subscription_id: subscription.id,
+    });
+  } catch {
+    // Non-fatal: notification failure should not block acceptance
+  }
 
   return invitation;
 }

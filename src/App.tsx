@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dashboard } from './components/Dashboard';
 import { SubscriptionDetails } from './components/SubscriptionDetails';
 import { AddSubscription } from './components/AddSubscription';
@@ -7,6 +7,7 @@ import { Payments } from './components/Payments';
 import { Settings } from './components/Settings';
 import { Login } from './components/Login';
 import { Register } from './components/Register';
+import AcceptInvitation from './components/AcceptInvitation';
 import { signOut } from './lib/supabaseApi';
 
 export type View = 'dashboard' | 'details' | 'add' | 'members' | 'payments' | 'settings';
@@ -43,6 +44,26 @@ function App() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
   const [language, setLanguage] = useState<'en' | 'es'>('es');
+  const [inviteToken, setInviteToken] = useState<string | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('invite');
+  });
+
+  // After login, check if there was a pending invite stored in sessionStorage
+  useEffect(() => {
+    if (isLoggedIn) {
+      const stored = sessionStorage.getItem('pendingInviteToken');
+      if (stored) {
+        sessionStorage.removeItem('pendingInviteToken');
+        setInviteToken(stored);
+      }
+    }
+  }, [isLoggedIn]);
+
+  const clearInviteToken = () => {
+    setInviteToken(null);
+    window.history.replaceState({}, '', window.location.pathname);
+  };
 
   const handleViewChange = (view: View, subscription?: Subscription) => {
     setCurrentView(view);
@@ -78,6 +99,19 @@ function App() {
       console.error('Error logging out:', error);
     }
   };
+
+  // ── Invitation landing page — shown even before login ──────────────────────
+  if (inviteToken) {
+    return (
+      <AcceptInvitation
+        token={inviteToken}
+        isLoggedIn={isLoggedIn}
+        onAccepted={() => { clearInviteToken(); setCurrentView('dashboard'); }}
+        onDeclined={() => { clearInviteToken(); }}
+        onNeedLogin={() => { /* token is stored in sessionStorage by AcceptInvitation */ setShowRegister(false); }}
+      />
+    );
+  }
 
   if (!isLoggedIn) {
     if (showRegister) {

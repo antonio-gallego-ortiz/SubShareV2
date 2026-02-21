@@ -275,7 +275,7 @@ export function Members({ onNavigate, language, onLanguageChange }: MembersProps
                       <div className="text-sm text-gray-500">{t.joined} {member.joinedDate}</div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="font-semibold text-gray-900">${member.totalContribution.toFixed(2)}</div>
+                      <div className="font-semibold text-gray-900">€{member.totalContribution.toFixed(2)}</div>
                       <div className="text-sm text-gray-500">{member.lastPayment}</div>
                     </td>
                     <td className="px-6 py-4">

@@ -175,6 +175,24 @@ CREATE POLICY "Users can view invitations they sent or received"
   ON public.invitations FOR SELECT
   USING (inviter_id = auth.uid() OR invitee_email = (SELECT email FROM public.profiles WHERE id = auth.uid()));
 
+CREATE POLICY "Anyone can view invitation by token"
+  ON public.invitations FOR SELECT
+  USING (true);
+
+CREATE POLICY "Authenticated users can create invitations for their subscriptions"
+  ON public.invitations FOR INSERT
+  WITH CHECK (
+    inviter_id = auth.uid() AND
+    subscription_id IN (
+      SELECT id FROM public.subscriptions WHERE owner_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Invitees can update invitation status"
+  ON public.invitations FOR UPDATE
+  USING (invitee_email = (SELECT email FROM public.profiles WHERE id = auth.uid()))
+  WITH CHECK (status IN ('accepted', 'declined'));
+
 -- Create function to automatically create profile on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
