@@ -24,12 +24,14 @@ export interface MemberWithProfile extends SubscriptionMember {
 // ========================================
 
 export async function signUp(
-  email: string, 
-  password: string, 
-  fullName: string, 
-  phone?: string, 
-  avatarUrl?: string
+  email: string,
+  password: string,
+  fullName: string,
+  phone?: string
 ) {
+  const initial = (fullName || 'U').charAt(0).toUpperCase();
+  const defaultAvatar = `https://api.dicebear.com/7.x/initials/svg?seed=${initial}`;
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -37,12 +39,33 @@ export async function signUp(
       data: {
         full_name: fullName,
         phone: phone || '',
-        avatar_url: avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${fullName.charAt(0).toUpperCase()}`,
+        avatar_url: defaultAvatar,
       },
     },
   });
 
   if (error) throw error;
+
+  // Explicitly upsert profile to guarantee phone is persisted in the DB
+  // (backup in case the DB trigger hasn't run yet or faces a timing issue)
+  if (data.user) {
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .upsert(
+        {
+          id: data.user.id,
+          email,
+          full_name: fullName,
+          phone: phone || '',
+          avatar_url: defaultAvatar,
+        },
+        { onConflict: 'id' }
+      );
+    if (profileError) {
+      console.warn('Profile upsert after sign-up failed (trigger may have handled it):', profileError.message);
+    }
+  }
+
   return data;
 }
 
@@ -82,6 +105,11 @@ export async function getCurrentProfile() {
     .select('*')
     .eq('id', user.id)
     .single();
+
+  // PGRST116 = no rows found, profile not created yet (trigger may be pending)
+  if (error && error.code === 'PGRST116') {
+    return null;
+  }
 
   if (error) throw error;
   return data;

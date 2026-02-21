@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Volume2, CheckCircle, AlertCircle, Phone, Camera } from 'lucide-react';
+import { useState } from 'react';
+import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Volume2, AlertCircle, Phone } from 'lucide-react';
 import logo from 'figma:asset/19c0aca0abb708d38d652971739de366b369956a.png';
 import { signUp } from '../lib/supabaseApi';
 
@@ -16,8 +16,6 @@ const translations = {
     signUp: 'Join SubShare and start managing subscriptions',
     fullName: 'FULL NAME',
     phone: 'PHONE NUMBER (OPTIONAL)',
-    profilePhoto: 'PROFILE PHOTO (OPTIONAL)',
-    choosePhoto: 'Choose Photo',
     emailAddress: 'EMAIL ADDRESS',
     password: 'PASSWORD',
     confirmPassword: 'CONFIRM PASSWORD',
@@ -44,8 +42,6 @@ const translations = {
     signUp: 'Únete a SubShare y comienza a gestionar suscripciones',
     fullName: 'NOMBRE COMPLETO',
     phone: 'NÚMERO DE TELÉFONO (OPCIONAL)',
-    profilePhoto: 'FOTO DE PERFIL (OPCIONAL)',
-    choosePhoto: 'Elegir Foto',
     emailAddress: 'CORREO ELECTRÓNICO',
     password: 'CONTRASEÑA',
     confirmPassword: 'CONFIRMAR CONTRASEÑA',
@@ -75,30 +71,12 @@ export function Register({ onRegister, onBackToLogin, language, onLanguageChange
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [phone, setPhone] = useState('');
-  const [profilePhoto, setProfilePhoto] = useState<string>('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const t = translations[language];
-
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfilePhoto(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const getInitialAvatar = (name: string) => {
-    const initial = name.charAt(0).toUpperCase();
-    return `https://api.dicebear.com/7.x/initials/svg?seed=${initial}`;
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,9 +110,7 @@ export function Register({ onRegister, onBackToLogin, language, onLanguageChange
     setLoading(true);
 
     try {
-      // Si no hay foto, usar avatar con inicial
-      const avatarUrl = profilePhoto || getInitialAvatar(fullName);
-      await signUp(email, password, fullName, phone, avatarUrl);
+      await signUp(email, password, fullName, phone);
       onRegister();
     } catch (err: any) {
       console.error('Register error:', err);
@@ -246,36 +222,6 @@ export function Register({ onRegister, onBackToLogin, language, onLanguageChange
                     placeholder="+34 612 345 678"
                     className="w-full pl-12 pr-4 py-3.5 bg-slate-900/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
                   />
-                </div>
-              </div>
-
-              {/* Profile Photo Input */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-2 tracking-wider">
-                  {t.profilePhoto}
-                </label>
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-full bg-slate-800/50 border border-slate-700/50 flex items-center justify-center overflow-hidden">
-                    {profilePhoto ? (
-                      <img src={profilePhoto} alt="Profile" className="w-full h-full object-cover" />
-                    ) : (
-                      <Camera className="w-6 h-6 text-slate-500" />
-                    )}
-                  </div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handlePhotoChange}
-                    className="hidden"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="px-4 py-2 bg-slate-800/50 border border-slate-700/50 text-slate-300 rounded-lg hover:bg-slate-700/50 transition-all text-sm"
-                  >
-                    {t.choosePhoto}
-                  </button>
                 </div>
               </div>
 
@@ -482,36 +428,6 @@ export function Register({ onRegister, onBackToLogin, language, onLanguageChange
                   placeholder="+34 612 345 678"
                   className="w-full pl-12 pr-4 py-3.5 bg-white border-2 border-gray-900 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                 />
-              </div>
-            </div>
-
-            {/* Profile Photo Input */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-900 mb-2 tracking-wider">
-                {t.profilePhoto}
-              </label>
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-gray-100 border-2 border-gray-900 flex items-center justify-center overflow-hidden">
-                  {profilePhoto ? (
-                    <img src={profilePhoto} alt="Profile" className="w-full h-full object-cover" />
-                  ) : (
-                    <Camera className="w-6 h-6 text-gray-400" />
-                  )}
-                </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handlePhotoChange}
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="px-4 py-2 bg-white border-2 border-gray-900 text-gray-900 rounded-lg hover:bg-gray-50 transition-all text-sm font-medium"
-                >
-                  {t.choosePhoto}
-                </button>
               </div>
             </div>
 

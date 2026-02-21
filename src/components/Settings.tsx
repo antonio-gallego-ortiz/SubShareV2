@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Bell, Save, User, Lock, CreditCard as CreditCardIcon, Globe, Shield, Mail, Smartphone, LogOut, Eye } from 'lucide-react';
 import type { View } from '../App';
 import { LanguageSelector } from './LanguageSelector';
@@ -151,7 +151,6 @@ export function Settings({ onNavigate, language, onLanguageChange, onLogout }: S
   const [twoFactor, setTwoFactor] = useState(false);
   const [autoRenewals, setAutoRenewals] = useState(true);
   const [contrastMode, setContrastMode] = useState(false);
-  const [profilePhoto, setProfilePhoto] = useState('https://api.dicebear.com/7.x/avataaars/svg?seed=Alex');
   const [showDeactivateModal, setShowDeactivateModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -162,14 +161,16 @@ export function Settings({ onNavigate, language, onLanguageChange, onLogout }: S
   const [actualPassword, setActualPassword] = useState('MySecurePass123');
   
   // User data states
+  const [userId, setUserId] = useState('');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [joinedAt, setJoinedAt] = useState('');
+  const [updatedAt, setUpdatedAt] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const t = translations[language];
 
   // Load user profile data
@@ -177,15 +178,53 @@ export function Settings({ onNavigate, language, onLanguageChange, onLogout }: S
     const loadUserProfile = async () => {
       try {
         setLoading(true);
+
+        // Always get auth user for metadata fallback
+        const user = await getCurrentUser();
+        const meta = user?.user_metadata || {};
+
+        // Try to get full profile from DB
         const profile = await getCurrentProfile();
-        if (profile) {
-          setFullName(profile.full_name || '');
-          setEmail(profile.email || '');
-          setPhone(profile.phone || '');
-          setProfilePhoto(profile.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=User');
+
+        // Merge: prefer DB values, fallback to auth metadata
+        setUserId(profile?.id || user?.id || '');
+        setFullName(profile?.full_name || meta.full_name || '');
+        setEmail(profile?.email || user?.email || '');
+        setPhone(profile?.phone || meta.phone || '');
+        setAvatarUrl(profile?.avatar_url || meta.avatar_url || '');
+        const createdAt = profile?.created_at || user?.created_at;
+        setJoinedAt(createdAt ? new Date(createdAt).toLocaleDateString() : '');
+        setUpdatedAt(profile?.updated_at ? new Date(profile.updated_at).toLocaleDateString() : '');
+
+        // If DB profile has empty fields, auto-update it with auth metadata
+        if (profile && user && (!profile.full_name || !profile.email)) {
+          try {
+            await updateProfile(user.id, {
+              full_name: profile.full_name || meta.full_name || '',
+              email: profile.email || user.email || '',
+              phone: profile.phone || meta.phone || '',
+            });
+          } catch (e) {
+            console.warn('Could not sync metadata to profile:', e);
+          }
         }
-      } catch (error) {
-        console.error('Error loading profile:', error);
+      } catch (err) {
+        console.error('Error loading profile:', err);
+        // Last resort: use auth user metadata only
+        try {
+          const user = await getCurrentUser();
+          if (user) {
+            const meta = user.user_metadata || {};
+            setUserId(user.id || '');
+            setFullName(meta.full_name || '');
+            setEmail(user.email || '');
+            setPhone(meta.phone || '');
+            setAvatarUrl(meta.avatar_url || '');
+            setJoinedAt(user.created_at ? new Date(user.created_at).toLocaleDateString() : '');
+          }
+        } catch (e) {
+          console.error('Error loading auth user:', e);
+        }
       } finally {
         setLoading(false);
       }
@@ -203,7 +242,6 @@ export function Settings({ onNavigate, language, onLanguageChange, onLogout }: S
           full_name: fullName,
           email: email,
           phone: phone,
-          avatar_url: profilePhoto
         });
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
@@ -214,28 +252,6 @@ export function Settings({ onNavigate, language, onLanguageChange, onLogout }: S
     } finally {
       setSaving(false);
     }
-  };
-
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfilePhoto(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleRemovePhoto = () => {
-    setProfilePhoto('https://api.dicebear.com/7.x/avataaars/svg?seed=Alex');
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const handleChangePhotoClick = () => {
-    fileInputRef.current?.click();
   };
 
   const handleDeactivateAccount = () => {
@@ -291,11 +307,9 @@ export function Settings({ onNavigate, language, onLanguageChange, onLogout }: S
                 onClick={() => onNavigate('settings')}
                 className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-lg px-2 py-1 transition-colors"
               >
-                <img
-                  src={profilePhoto}
-                  alt={fullName || 'User'}
-                  className="w-8 h-8 rounded-full object-cover"
-                />
+                <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold text-sm">
+                  {fullName ? fullName.charAt(0).toUpperCase() : 'U'}
+                </div>
                 <span className="text-sm font-medium text-gray-700">{fullName || 'User'}</span>
               </div>
             </div>
@@ -409,32 +423,68 @@ export function Settings({ onNavigate, language, onLanguageChange, onLogout }: S
                 <h2 className="text-lg font-semibold text-gray-900 mb-6">{t.profile}</h2>
                 
                 <div className="flex items-center gap-6 mb-6 pb-6 border-b border-gray-200">
-                  <img
-                    src={profilePhoto}
-                    alt="Profile"
-                    className="w-20 h-20 rounded-full object-cover"
-                  />
-                  <div>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handlePhotoChange}
-                      className="hidden"
-                    />
-                    <button 
-                      onClick={handleChangePhotoClick}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium mr-3"
-                    >
-                      {t.changePhoto}
-                    </button>
-                    <button 
-                      onClick={handleRemovePhoto}
-                      className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium"
-                    >
-                      {t.remove}
-                    </button>
+                  <div className="w-20 h-20 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-3xl flex-shrink-0">
+                    {fullName ? fullName.charAt(0).toUpperCase() : 'U'}
                   </div>
+                  <div className="min-w-0">
+                    <p className="text-lg font-semibold text-gray-900 truncate">{fullName || (language === 'en' ? 'User' : 'Usuario')}</p>
+                    <p className="text-sm text-gray-500 truncate">{email}</p>
+                    <p className="text-sm text-gray-500 flex items-center gap-1 mt-0.5">
+                      <Smartphone className="w-3.5 h-3.5" />
+                      {phone || (language === 'en' ? 'No phone added' : 'Sin teléfono')}
+                    </p>
+                    {joinedAt && (
+                      <p className="text-xs text-gray-400 mt-1">
+                        {language === 'en' ? 'Member since' : 'Miembro desde'} {joinedAt}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* DB Data Summary — all fields from profiles table */}
+                <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                    <h3 className="text-sm font-semibold text-blue-700 uppercase tracking-wide">
+                      {language === 'en' ? 'Account Data (from database)' : 'Datos de la Cuenta (desde la base de datos)'}
+                    </h3>
+                  </div>
+                  {loading ? (
+                    <p className="text-sm text-blue-500 animate-pulse">
+                      {language === 'en' ? 'Loading data...' : 'Cargando datos...'}
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                      <div className="flex flex-col">
+                        <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">{t.fullName}</span>
+                        <span className="text-gray-900 font-medium">{fullName || '—'}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">{t.email}</span>
+                        <span className="text-gray-900 font-medium truncate">{email || '—'}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">{t.phone}</span>
+                        <span className="text-gray-900 font-medium">{phone || '—'}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+                          {language === 'en' ? 'Member since' : 'Miembro desde'}
+                        </span>
+                        <span className="text-gray-900 font-medium">{joinedAt || '—'}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+                          {language === 'en' ? 'Last updated' : 'Última actualización'}
+                        </span>
+                        <span className="text-gray-900 font-medium">{updatedAt || '—'}</span>
+                      </div>
+                      <div className="flex flex-col col-span-2">
+                        <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">User ID</span>
+                        <span className="text-gray-500 text-xs font-mono break-all">{userId || '—'}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-6">
