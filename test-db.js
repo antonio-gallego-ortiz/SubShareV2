@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://vjnynutomqiatloupetsl.supabase.co';
+const supabaseUrl = 'https://vjnynuromqiatlopetsl.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqbnludXJvbXFpYXRsb3BldHNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1ODA5NjQsImV4cCI6MjA4NzE1Njk2NH0.52AtmDaWfD1xkDMIz01imUkp1IdVh7nIR0vAEmC_Gik';
 
 console.log('🔍 Probando conexión a Supabase...\n');
