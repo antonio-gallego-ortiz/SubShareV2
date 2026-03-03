@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Volume2, AlertCircle, Phone } from 'lucide-react';
-import logo from 'figma:asset/19c0aca0abb708d38d652971739de366b369956a.png';
+import logo from '../assets/19c0aca0abb708d38d652971739de366b369956a.png';
 import { signUp } from '../lib/supabaseApi';
 
 interface RegisterProps {
