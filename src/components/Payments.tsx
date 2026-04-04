@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import { Download, Filter, CreditCard, CheckCircle, Clock, XCircle, Calendar, X, DollarSign } from 'lucide-react';
+import { Search, Bell, Download, Filter, CreditCard, CheckCircle, Clock, XCircle, Calendar, X, DollarSign } from 'lucide-react';
 import type { View } from '../App';
-import { Navbar } from './Navbar';
+import { NotificationPanel } from './NotificationPanel';
 
 interface PaymentsProps {
   onNavigate: (view: View) => void;
   language: 'en' | 'es';
-  onLanguageChange: (lang: 'en' | 'es') => void;
 }
 
 interface Transaction {
@@ -20,8 +19,78 @@ interface Transaction {
   category: string;
 }
 
-// Initialize with empty transactions - will be loaded from database
-const transactions: Transaction[] = [];
+const transactions: Transaction[] = [
+  {
+    id: '1',
+    date: '2023-10-15',
+    subscription: 'Netflix Premium',
+    member: 'Sarah Miller',
+    amount: 5.00,
+    status: 'completed',
+    paymentMethod: 'Visa ****4532',
+    category: 'Entertainment'
+  },
+  {
+    id: '2',
+    date: '2023-10-14',
+    subscription: 'Spotify Family',
+    member: 'Alex Martinez',
+    amount: 2.83,
+    status: 'completed',
+    paymentMethod: 'Auto-debit',
+    category: 'Music'
+  },
+  {
+    id: '3',
+    date: '2023-10-13',
+    subscription: 'YouTube Premium',
+    member: 'Charlie Davis',
+    amount: 4.60,
+    status: 'completed',
+    paymentMethod: 'Mastercard ****8821',
+    category: 'Entertainment'
+  },
+  {
+    id: '4',
+    date: '2023-10-12',
+    subscription: 'Netflix Premium',
+    member: 'Bob Jenkins',
+    amount: 5.00,
+    status: 'pending',
+    paymentMethod: 'Pending',
+    category: 'Entertainment'
+  },
+  {
+    id: '5',
+    date: '2023-10-10',
+    subscription: 'Spotify Family',
+    member: 'Emma Wilson',
+    amount: 2.83,
+    status: 'completed',
+    paymentMethod: 'Visa ****2109',
+    category: 'Music'
+  },
+  {
+    id: '6',
+    date: '2023-10-08',
+    subscription: 'Netflix Premium',
+    member: 'Charlie Davis',
+    amount: 5.00,
+    status: 'failed',
+    paymentMethod: 'Visa ****3421',
+    category: 'Entertainment'
+  },
+  {
+    id: '7',
+    date: '2023-10-05',
+    subscription: 'YouTube Premium',
+    member: 'Sarah Miller',
+    amount: 4.60,
+    status: 'completed',
+    paymentMethod: 'Visa ****4532',
+    category: 'Entertainment'
+  }
+];
 
 const translations = {
   en: {
@@ -59,9 +128,7 @@ const translations = {
     notesPlaceholder: 'Add any additional details about this payment...',
     cancel: 'Cancel',
     confirmPayment: 'Confirm Payment',
-    actions: 'Actions',
-    noPayments: 'No Payments Yet',
-    noPaymentsDesc: 'Your payment history will appear here once you start making transactions'
+    actions: 'Actions'
   },
   es: {
     title: 'Historial de Pagos',
@@ -98,13 +165,11 @@ const translations = {
     notesPlaceholder: 'Añade detalles adicionales sobre este pago...',
     cancel: 'Cancelar',
     confirmPayment: 'Confirmar Pago',
-    actions: 'Acciones',
-    noPayments: 'Sin Pagos Aún',
-    noPaymentsDesc: 'Tu historial de pagos aparecerá aquí una vez que comiences a hacer transacciones'
+    actions: 'Acciones'
   }
 };
 
-export function Payments({ onNavigate, language, onLanguageChange }: PaymentsProps) {
+export function Payments({ onNavigate, language }: PaymentsProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'completed' | 'pending' | 'failed'>('all');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -150,7 +215,73 @@ export function Payments({ onNavigate, language, onLanguageChange }: PaymentsPro
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar onNavigate={onNavigate} currentView="payments" language={language} onLanguageChange={onLanguageChange} />
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-8">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
+                  S
+                </div>
+                <div>
+                  <div className="font-semibold text-gray-900">SubShare</div>
+                  <div className="text-xs text-gray-500">Family Management</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder={t.search}
+                  className="pl-4 pr-4 py-2 border border-gray-200 rounded-lg bg-gray-50 w-64 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <NotificationPanel language={language} />
+              <div 
+                onClick={() => onNavigate('settings')}
+                className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-lg px-2 py-1 transition-colors"
+              >
+                <img
+                  src="https://api.dicebear.com/7.x/avataaars/svg?seed=Alex"
+                  alt="Alex M."
+                  className="w-8 h-8 rounded-full"
+                />
+                <span className="text-sm font-medium text-gray-700">Alex M.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-6">
+          <nav className="flex gap-8">
+            <button 
+              onClick={() => onNavigate('dashboard')}
+              className="py-4 text-sm text-gray-600 hover:text-gray-900"
+            >
+              Dashboard
+            </button>
+            
+            
+            <button className="py-4 text-sm text-blue-600 font-medium border-b-2 border-blue-600">
+              Payments
+            </button>
+            <button 
+              onClick={() => onNavigate('settings')}
+              className="py-4 text-sm text-gray-600 hover:text-gray-900"
+            >
+              Settings
+            </button>
+          </nav>
+        </div>
+      </div>
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 py-8">
@@ -175,7 +306,7 @@ export function Payments({ onNavigate, language, onLanguageChange }: PaymentsPro
                 <CheckCircle className="w-5 h-5 text-green-600" />
               </div>
             </div>
-            <div className="text-3xl font-semibold text-gray-900 mb-2">€{totalPaidThisMonth.toFixed(2)}</div>
+            <div className="text-3xl font-semibold text-gray-900 mb-2">${totalPaidThisMonth.toFixed(2)}</div>
             <div className="text-sm text-green-600">↗ 7 successful transactions</div>
           </div>
 
@@ -240,33 +371,15 @@ export function Payments({ onNavigate, language, onLanguageChange }: PaymentsPro
               >
                 {t.pending}
               </button>
-              <button
-                onClick={() => setFilterStatus('failed')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  filterStatus === 'failed'
-                    ? 'bg-red-100 text-red-600'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {t.failed}
-              </button>
+              
             </div>
           </div>
         </div>
 
         {/* Transactions Table */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          {filteredTransactions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20">
-              <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">
-                <CreditCard className="w-10 h-10 text-gray-400" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">{t.noPayments}</h3>
-              <p className="text-gray-500 mb-6 text-center max-w-md">{t.noPaymentsDesc}</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
+          <div className="overflow-x-auto">
+            <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 uppercase">{t.date}</th>
@@ -298,7 +411,7 @@ export function Payments({ onNavigate, language, onLanguageChange }: PaymentsPro
                       <div className="text-gray-900">{transaction.member}</div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="font-semibold text-gray-900">€{transaction.amount.toFixed(2)}</div>
+                      <div className="font-semibold text-gray-900">${transaction.amount.toFixed(2)}</div>
                     </td>
                     <td className="px-6 py-4">
                       {transaction.status === 'completed' && (
@@ -340,8 +453,7 @@ export function Payments({ onNavigate, language, onLanguageChange }: PaymentsPro
                 ))}
               </tbody>
             </table>
-            </div>
-          )}
+          </div>
         </div>
       </div>
 
@@ -377,7 +489,7 @@ export function Payments({ onNavigate, language, onLanguageChange }: PaymentsPro
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">{t.amount}:</span>
-                    <span className="text-lg font-semibold text-blue-600">€{selectedTransaction.amount.toFixed(2)}</span>
+                    <span className="text-lg font-semibold text-blue-600">${selectedTransaction.amount.toFixed(2)}</span>
                   </div>
                 </div>
               </div>

@@ -1,14 +1,11 @@
-import { useState, useEffect } from 'react';
-import { Bell, Save, User, Lock, CreditCard as CreditCardIcon, Globe, Shield, Mail, Smartphone, LogOut, Eye } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Search, Bell, Save, User, Lock, CreditCard as CreditCardIcon, Globe, Shield, Mail, Smartphone, LogOut, Eye, AlertTriangle } from 'lucide-react';
 import type { View } from '../App';
-import { Navbar } from './Navbar';
-import { getCurrentProfile, getCurrentUser, updateProfile } from '../lib/supabaseApi';
+import { NotificationPanel } from './NotificationPanel';
 
 interface SettingsProps {
   onNavigate: (view: View) => void;
   language: 'en' | 'es';
-  onLanguageChange: (lang: 'en' | 'es') => void;
-  onLogout: () => void;
 }
 
 const translations = {
@@ -72,9 +69,7 @@ const translations = {
     cardHolder: 'Cardholder Name',
     expiryDate: 'Expiry Date',
     cvv: 'CVV',
-    addCard: 'Add Card',
-    logout: 'Logout',
-    logoutDesc: 'Sign out of your account'
+    addCard: 'Add Card'
   },
   es: {
     title: 'Configuración',
@@ -136,20 +131,19 @@ const translations = {
     cardHolder: 'Nombre del Titular',
     expiryDate: 'Fecha de Vencimiento',
     cvv: 'CVV',
-    addCard: 'Agregar Tarjeta',
-    logout: 'Cerrar Sesión',
-    logoutDesc: 'Salir de tu cuenta'
+    addCard: 'Agregar Tarjeta'
   }
 };
 
-export function Settings({ onNavigate, language, onLanguageChange, onLogout }: SettingsProps) {
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'payment' | 'notifications' | 'preferences'>('profile');
+export function Settings({ onNavigate, language }: SettingsProps) {
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'payment' | 'notifications' | 'dangerZone'>('profile');
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
   const [paymentReminders, setPaymentReminders] = useState(true);
   const [twoFactor, setTwoFactor] = useState(false);
   const [autoRenewals, setAutoRenewals] = useState(true);
   const [contrastMode, setContrastMode] = useState(false);
+  const [profilePhoto, setProfilePhoto] = useState('https://api.dicebear.com/7.x/avataaars/svg?seed=Alex');
   const [showDeactivateModal, setShowDeactivateModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -159,98 +153,29 @@ export function Settings({ onNavigate, language, onLanguageChange, onLogout }: S
   const [showActualPassword, setShowActualPassword] = useState(false);
   const [actualPassword, setActualPassword] = useState('MySecurePass123');
   
-  // User data states
-  const [userId, setUserId] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('');
-  const [joinedAt, setJoinedAt] = useState('');
-  const [updatedAt, setUpdatedAt] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const t = translations[language];
 
-  // Load user profile data
-  useEffect(() => {
-    const loadUserProfile = async () => {
-      try {
-        setLoading(true);
-
-        // Always get auth user for metadata fallback
-        const user = await getCurrentUser();
-        const meta = user?.user_metadata || {};
-
-        // Try to get full profile from DB
-        const profile = await getCurrentProfile();
-
-        // Merge: prefer DB values, fallback to auth metadata
-        setUserId(profile?.id || user?.id || '');
-        setFullName(profile?.full_name || meta.full_name || '');
-        setEmail(profile?.email || user?.email || '');
-        setPhone(profile?.phone || meta.phone || '');
-        setAvatarUrl(profile?.avatar_url || meta.avatar_url || '');
-        const createdAt = profile?.created_at || user?.created_at;
-        setJoinedAt(createdAt ? new Date(createdAt).toLocaleDateString() : '');
-        setUpdatedAt(profile?.updated_at ? new Date(profile.updated_at).toLocaleDateString() : '');
-
-        // If DB profile has empty fields, auto-update it with auth metadata
-        if (profile && user && (!profile.full_name || !profile.email)) {
-          try {
-            await updateProfile(user.id, {
-              full_name: profile.full_name || meta.full_name || '',
-              email: profile.email || user.email || '',
-              phone: profile.phone || meta.phone || '',
-            });
-          } catch (e) {
-            console.warn('Could not sync metadata to profile:', e);
-          }
-        }
-      } catch (err) {
-        console.error('Error loading profile:', err);
-        // Last resort: use auth user metadata only
-        try {
-          const user = await getCurrentUser();
-          if (user) {
-            const meta = user.user_metadata || {};
-            setUserId(user.id || '');
-            setFullName(meta.full_name || '');
-            setEmail(user.email || '');
-            setPhone(meta.phone || '');
-            setAvatarUrl(meta.avatar_url || '');
-            setJoinedAt(user.created_at ? new Date(user.created_at).toLocaleDateString() : '');
-          }
-        } catch (e) {
-          console.error('Error loading auth user:', e);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadUserProfile();
-  }, []);
-
-  const handleSaveChanges = async () => {
-    try {
-      setSaving(true);
-      const user = await getCurrentUser();
-      if (user) {
-        await updateProfile(user.id, {
-          full_name: fullName,
-          email: email,
-          phone: phone,
-        });
-        setSaveSuccess(true);
-        setTimeout(() => setSaveSuccess(false), 3000);
-      }
-    } catch (error) {
-      console.error('Error saving profile:', error);
-      alert(language === 'en' ? 'Error saving changes' : 'Error al guardar cambios');
-    } finally {
-      setSaving(false);
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfilePhoto(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
+  };
+
+  const handleRemovePhoto = () => {
+    setProfilePhoto('https://api.dicebear.com/7.x/avataaars/svg?seed=Alex');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleChangePhotoClick = () => {
+    fileInputRef.current?.click();
   };
 
   const handleDeactivateAccount = () => {
@@ -275,7 +200,72 @@ export function Settings({ onNavigate, language, onLanguageChange, onLogout }: S
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar onNavigate={onNavigate} currentView="settings" language={language} onLanguageChange={onLanguageChange} />
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-8">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
+                  S
+                </div>
+                <div>
+                  <div className="font-semibold text-gray-900">SubShare</div>
+                  
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder={t.search}
+                  className="pl-4 pr-4 py-2 border border-gray-200 rounded-lg bg-gray-50 w-64 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              
+              <NotificationPanel language={language} />
+              <div 
+                onClick={() => onNavigate('settings')}
+                className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-lg px-2 py-1 transition-colors"
+              >
+                <img
+                  src={profilePhoto}
+                  alt="Alex M."
+                  className="w-8 h-8 rounded-full"
+                />
+                <span className="text-sm font-medium text-gray-700">Alex M.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-6">
+          <nav className="flex gap-8">
+            <button 
+              onClick={() => onNavigate('dashboard')}
+              className="py-4 text-sm text-gray-600 hover:text-gray-900"
+            >
+              Dashboard
+            </button>
+            
+            
+            <button 
+              onClick={() => onNavigate('payments')}
+              className="py-4 text-sm text-gray-600 hover:text-gray-900"
+            >
+              Payments
+            </button>
+            <button className="py-4 text-sm text-blue-600 font-medium border-b-2 border-blue-600">
+              Settings
+            </button>
+          </nav>
+        </div>
+      </div>
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 py-8">
@@ -284,19 +274,10 @@ export function Settings({ onNavigate, language, onLanguageChange, onLogout }: S
             <h1 className="text-2xl font-semibold text-gray-900 mb-1">{t.title}</h1>
             <p className="text-gray-600">{t.subtitle}</p>
           </div>
-          <button 
-            onClick={handleSaveChanges}
-            disabled={saving}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors"
-          >
+          <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
             <Save className="w-4 h-4" />
-            {saving ? (language === 'en' ? 'Saving...' : 'Guardando...') : t.saveChanges}
+            {t.saveChanges}
           </button>
-          {saveSuccess && (
-            <div className="text-sm text-green-600 font-medium">
-              {language === 'en' ? '✓ Saved successfully' : '✓ Guardado exitosamente'}
-            </div>
-          )}
         </div>
 
         <div className="grid grid-cols-4 gap-6">
@@ -321,15 +302,7 @@ export function Settings({ onNavigate, language, onLanguageChange, onLogout }: S
                 <Lock className="w-5 h-5" />
                 <span className="font-medium">{t.security}</span>
               </button>
-              <button
-                onClick={() => setActiveTab('payment')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  activeTab === 'payment' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <CreditCardIcon className="w-5 h-5" />
-                <span className="font-medium">{t.payment}</span>
-              </button>
+              
               <button
                 onClick={() => setActiveTab('notifications')}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
@@ -340,13 +313,13 @@ export function Settings({ onNavigate, language, onLanguageChange, onLogout }: S
                 <span className="font-medium">{t.notifications}</span>
               </button>
               <button
-                onClick={() => setActiveTab('preferences')}
+                onClick={() => setActiveTab('dangerZone')}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  activeTab === 'preferences' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'
+                  activeTab === 'dangerZone' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'
                 }`}
               >
-                <Globe className="w-5 h-5" />
-                <span className="font-medium">{t.preferences}</span>
+                <AlertTriangle className="w-5 h-5" />
+                <span className="font-medium">{t.dangerZone}</span>
               </button>
             </div>
           </div>
@@ -358,68 +331,32 @@ export function Settings({ onNavigate, language, onLanguageChange, onLogout }: S
                 <h2 className="text-lg font-semibold text-gray-900 mb-6">{t.profile}</h2>
                 
                 <div className="flex items-center gap-6 mb-6 pb-6 border-b border-gray-200">
-                  <div className="w-20 h-20 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-3xl flex-shrink-0">
-                    {fullName ? fullName.charAt(0).toUpperCase() : 'U'}
+                  <img
+                    src={profilePhoto}
+                    alt="Profile"
+                    className="w-20 h-20 rounded-full object-cover"
+                  />
+                  <div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoChange}
+                      className="hidden"
+                    />
+                    <button 
+                      onClick={handleChangePhotoClick}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium mr-3"
+                    >
+                      {t.changePhoto}
+                    </button>
+                    <button 
+                      onClick={handleRemovePhoto}
+                      className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium"
+                    >
+                      {t.remove}
+                    </button>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-lg font-semibold text-gray-900 truncate">{fullName || (language === 'en' ? 'User' : 'Usuario')}</p>
-                    <p className="text-sm text-gray-500 truncate">{email}</p>
-                    <p className="text-sm text-gray-500 flex items-center gap-1 mt-0.5">
-                      <Smartphone className="w-3.5 h-3.5" />
-                      {phone || (language === 'en' ? 'No phone added' : 'Sin teléfono')}
-                    </p>
-                    {joinedAt && (
-                      <p className="text-xs text-gray-400 mt-1">
-                        {language === 'en' ? 'Member since' : 'Miembro desde'} {joinedAt}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* DB Data Summary — all fields from profiles table */}
-                <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-2 h-2 rounded-full bg-green-500" />
-                    <h3 className="text-sm font-semibold text-blue-700 uppercase tracking-wide">
-                      {language === 'en' ? 'Account Data (from database)' : 'Datos de la Cuenta (desde la base de datos)'}
-                    </h3>
-                  </div>
-                  {loading ? (
-                    <p className="text-sm text-blue-500 animate-pulse">
-                      {language === 'en' ? 'Loading data...' : 'Cargando datos...'}
-                    </p>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                      <div className="flex flex-col">
-                        <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">{t.fullName}</span>
-                        <span className="text-gray-900 font-medium">{fullName || '—'}</span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">{t.email}</span>
-                        <span className="text-gray-900 font-medium truncate">{email || '—'}</span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">{t.phone}</span>
-                        <span className="text-gray-900 font-medium">{phone || '—'}</span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">
-                          {language === 'en' ? 'Member since' : 'Miembro desde'}
-                        </span>
-                        <span className="text-gray-900 font-medium">{joinedAt || '—'}</span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">
-                          {language === 'en' ? 'Last updated' : 'Última actualización'}
-                        </span>
-                        <span className="text-gray-900 font-medium">{updatedAt || '—'}</span>
-                      </div>
-                      <div className="flex flex-col col-span-2">
-                        <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">User ID</span>
-                        <span className="text-gray-500 text-xs font-mono break-all">{userId || '—'}</span>
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-6">
@@ -427,8 +364,7 @@ export function Settings({ onNavigate, language, onLanguageChange, onLogout }: S
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t.fullName}</label>
                     <input
                       type="text"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
+                      defaultValue="Alex Martinez"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -436,28 +372,11 @@ export function Settings({ onNavigate, language, onLanguageChange, onLogout }: S
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t.email}</label>
                     <input
                       type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      defaultValue="alex.m@example.com"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t.phone}</label>
-                    <input
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t.timezone}</label>
-                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                      <option>Pacific Time (PT)</option>
-                      <option>Eastern Time (ET)</option>
-                      <option>Central European Time (CET)</option>
-                    </select>
-                  </div>
+                  
                 </div>
               </div>
             )}
@@ -593,27 +512,7 @@ export function Settings({ onNavigate, language, onLanguageChange, onLogout }: S
                     </button>
                   </div>
 
-                  <div className="flex items-center justify-between pb-6 border-b border-gray-200">
-                    <div className="flex items-center gap-3">
-                      <Smartphone className="w-5 h-5 text-gray-600" />
-                      <div>
-                        <div className="font-medium text-gray-900">{t.pushNotifications}</div>
-                        <div className="text-sm text-gray-600">{t.pushNotificationsDesc}</div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setPushNotifications(!pushNotifications)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        pushNotifications ? 'bg-blue-600' : 'bg-gray-300'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          pushNotifications ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
+                  
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -640,74 +539,9 @@ export function Settings({ onNavigate, language, onLanguageChange, onLogout }: S
               </div>
             )}
 
-            {activeTab === 'preferences' && (
+            {activeTab === 'dangerZone' && (
               <div className="space-y-6">
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-6">{t.preferences}</h2>
-                  
-                  <div className="space-y-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">{t.currency}</label>
-                      <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option>EUR - Euro</option>
-                        <option>USD - US Dollar</option>
-                        <option>GBP - British Pound</option>
-                        <option>MXN - Mexican Peso</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">{t.language}</label>
-                      <select 
-                        value={language}
-                        onChange={(e) => onLanguageChange(e.target.value as 'en' | 'es')}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="en">English</option>
-                        <option value="es">Español</option>
-                      </select>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-6 border-t border-gray-200">
-                      <div>
-                        <div className="font-medium text-gray-900">{t.autoRenewals}</div>
-                        <div className="text-sm text-gray-600">{t.autoRenewalsDesc}</div>
-                      </div>
-                      <button
-                        onClick={() => setAutoRenewals(!autoRenewals)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                          autoRenewals ? 'bg-blue-600' : 'bg-gray-300'
-                        }`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            autoRenewals ? 'translate-x-6' : 'translate-x-1'
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Logout Section */}
-                <div className="bg-blue-50 rounded-xl border border-blue-200 p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <LogOut className="w-5 h-5 text-blue-600" />
-                      <div>
-                        <div className="font-medium text-gray-900">{t.logout}</div>
-                        <div className="text-sm text-gray-600">{t.logoutDesc}</div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={onLogout}
-                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      {t.logout}
-                    </button>
-                  </div>
-                </div>
+                
 
                 <div className="bg-red-50 rounded-xl border border-red-200 p-6">
                   <h3 className="font-semibold text-red-900 mb-4">{t.dangerZone}</h3>

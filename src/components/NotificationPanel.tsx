@@ -1,17 +1,14 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { Bell, CheckCircle, Clock, AlertCircle, Mail, RefreshCw, X } from 'lucide-react';
-import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '../lib/supabaseApi';
-import { supabase } from '../lib/supabase';
+import { useState, useRef, useEffect } from 'react';
+import { Bell, CheckCircle, Clock, AlertCircle, X } from 'lucide-react';
 
 interface Notification {
   id: string;
-  user_id: string;
+  type: 'payment_completed' | 'payment_pending' | 'payment_due';
   title: string;
-  message: string;
-  type: 'payment' | 'reminder' | 'invitation' | 'update';
-  is_read: boolean;
-  related_subscription_id: string | null;
-  created_at: string;
+  description: string;
+  amount?: number;
+  date: string;
+  isRead: boolean;
 }
 
 interface NotificationPanelProps {
@@ -23,197 +20,231 @@ const translations = {
     notifications: 'Notifications',
     markAllRead: 'Mark all as read',
     noNotifications: 'No notifications',
-    noNotificationsDesc: "You're all caught up!",
+    noNotificationsDesc: 'You\'re all caught up!',
+    paymentCompleted: 'Payment completed',
+    paymentPending: 'Payment pending',
+    paymentDue: 'Payment due soon',
+    viewAll: 'View all payments',
     justNow: 'Just now',
-    hoursAgo: 'h ago',
-    daysAgo: 'd ago',
+    hoursAgo: 'hours ago',
+    daysAgo: 'days ago',
     yesterday: 'Yesterday',
+    today: 'Today'
   },
   es: {
     notifications: 'Notificaciones',
     markAllRead: 'Marcar todas como leídas',
     noNotifications: 'Sin notificaciones',
     noNotificationsDesc: '¡Estás al día!',
-    justNow: 'Ahora mismo',
-    hoursAgo: 'h',
-    daysAgo: 'd',
+    paymentCompleted: 'Pago completado',
+    paymentPending: 'Pago pendiente',
+    paymentDue: 'Pago próximo',
+    viewAll: 'Ver todos los pagos',
+    justNow: 'Justo ahora',
+    hoursAgo: 'horas',
+    daysAgo: 'días',
     yesterday: 'Ayer',
-  },
+    today: 'Hoy'
+  }
 };
 
-function formatTimeAgo(dateString: string, lang: 'en' | 'es'): string {
-  const locale = translations[lang];
-  const diff = (Date.now() - new Date(dateString).getTime()) / 1000;
-  if (diff < 60) return locale.justNow;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}${locale.hoursAgo}`;
-  if (diff < 172800) return locale.yesterday;
-  return `${Math.floor(diff / 86400)}${locale.daysAgo}`;
-}
-
-function NotifIcon({ type }: { type: Notification['type'] }) {
-  const map = {
-    payment:    { icon: <CheckCircle className="w-4 h-4" />, bg: 'bg-green-100',  color: 'text-green-600'  },
-    reminder:   { icon: <Clock       className="w-4 h-4" />, bg: 'bg-orange-100', color: 'text-orange-500' },
-    invitation: { icon: <Mail        className="w-4 h-4" />, bg: 'bg-indigo-100', color: 'text-indigo-600' },
-    update:     { icon: <RefreshCw   className="w-4 h-4" />, bg: 'bg-blue-100',   color: 'text-blue-600'   },
-  };
-  const s = map[type] ?? { icon: <AlertCircle className="w-4 h-4" />, bg: 'bg-gray-100', color: 'text-gray-600' };
-  return (
-    <div className={`w-8 h-8 rounded-full ${s.bg} ${s.color} flex items-center justify-center flex-shrink-0`}>
-      {s.icon}
-    </div>
-  );
-}
+// Datos de ejemplo de notificaciones
+const mockNotifications: Notification[] = [
+  {
+    id: '1',
+    type: 'payment_completed',
+    title: 'Sarah Miller paid for Netflix Premium',
+    description: 'Payment of $5.00 received successfully',
+    amount: 5.00,
+    date: '2023-10-15T14:30:00',
+    isRead: false
+  },
+  {
+    id: '2',
+    type: 'payment_pending',
+    title: 'Bob Jenkins - Netflix Premium',
+    description: 'Payment of $5.00 is pending',
+    amount: 5.00,
+    date: '2023-10-15T10:00:00',
+    isRead: false
+  },
+  {
+    id: '3',
+    type: 'payment_due',
+    title: 'Spotify Family renewal',
+    description: 'Your share of $2.83 is due in 3 days',
+    amount: 2.83,
+    date: '2023-10-15T09:00:00',
+    isRead: false
+  },
+  {
+    id: '4',
+    type: 'payment_completed',
+    title: 'Charlie Davis paid for YouTube Premium',
+    description: 'Payment of $4.60 received successfully',
+    amount: 4.60,
+    date: '2023-10-14T16:20:00',
+    isRead: true
+  },
+  {
+    id: '5',
+    type: 'payment_due',
+    title: 'Netflix Premium renewal',
+    description: 'Your share of $5.00 is due on Oct 24',
+    amount: 5.00,
+    date: '2023-10-14T08:00:00',
+    isRead: true
+  }
+];
 
 export function NotificationPanel({ language }: NotificationPanelProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
   const panelRef = useRef<HTMLDivElement>(null);
-  const locale = translations[language];
+  const t = translations[language];
 
-  const unreadCount = notifications.filter(n => !n.is_read).length;
+  const unreadCount = notifications.filter(n => !n.isRead).length;
 
-  const fetchNotifications = useCallback(async () => {
-    try {
-      setLoading(true);
-      const data = await getNotifications();
-      setNotifications((data as Notification[]) ?? []);
-    } catch (err) {
-      console.error('Failed to load notifications:', err);
-    } finally {
-      setLoading(false);
+  // Cerrar panel al hacer clic fuera
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
     }
-  }, []);
 
-  // Fetch on mount
-  useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
-
-  // Realtime: refresh when any change happens to the notifications table
-  useEffect(() => {
-    const channel = supabase
-      .channel('notifications-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
-        fetchNotifications();
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [fetchNotifications]);
-
-  // Close on outside click
-  useEffect(() => {
-    if (!isOpen) return;
-    const handle = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) setIsOpen(false);
-    };
-    document.addEventListener('mousedown', handle);
-    return () => document.removeEventListener('mousedown', handle);
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
   }, [isOpen]);
 
-  const handleMarkAllRead = async () => {
-    try {
-      await markAllNotificationsAsRead();
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-    } catch (err) {
-      console.error('Failed to mark all as read:', err);
+  const handleMarkAllRead = () => {
+    setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+  };
+
+  const handleNotificationClick = (id: string) => {
+    setNotifications(notifications.map(n => 
+      n.id === id ? { ...n, isRead: true } : n
+    ));
+  };
+
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) return t.justNow;
+    if (diffInHours < 24) return `${diffInHours} ${t.hoursAgo}`;
+    if (diffInHours < 48) return t.yesterday;
+    
+    const diffInDays = Math.floor(diffInHours / 24);
+    return `${diffInDays} ${t.daysAgo}`;
+  };
+
+  const getNotificationIcon = (type: Notification['type']) => {
+    switch (type) {
+      case 'payment_completed':
+        return <CheckCircle className="w-5 h-5 text-green-600" />;
+      case 'payment_pending':
+        return <Clock className="w-5 h-5 text-orange-600" />;
+      case 'payment_due':
+        return <AlertCircle className="w-5 h-5 text-blue-600" />;
+      default:
+        return <Bell className="w-5 h-5 text-gray-600" />;
     }
   };
 
-  const handleClick = async (n: Notification) => {
-    if (n.is_read) return;
-    try {
-      await markNotificationAsRead(n.id);
-      setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, is_read: true } : x));
-    } catch (err) {
-      console.error('Failed to mark as read:', err);
+  const getNotificationBgColor = (type: Notification['type']) => {
+    switch (type) {
+      case 'payment_completed':
+        return 'bg-green-100';
+      case 'payment_pending':
+        return 'bg-orange-100';
+      case 'payment_due':
+        return 'bg-blue-100';
+      default:
+        return 'bg-gray-100';
     }
   };
 
   return (
     <div className="relative" ref={panelRef}>
-      {/* Bell button */}
-      <button
-        onClick={() => setIsOpen(o => !o)}
-        className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="relative p-2 hover:bg-gray-100 rounded-lg"
       >
         <Bell className="w-5 h-5 text-gray-600" />
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold">
+          <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-96 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden">
+        <div className="absolute right-0 mt-2 w-96 bg-white rounded-xl shadow-lg border border-gray-200 z-50">
           {/* Header */}
-          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-gray-900">{locale.notifications}</h3>
-              {unreadCount > 0 && (
-                <span className="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
-                  {unreadCount}
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {unreadCount > 0 && (
-                <button onClick={handleMarkAllRead} className="text-xs text-blue-600 hover:text-blue-700 font-medium">
-                  {locale.markAllRead}
-                </button>
-              )}
-              <button onClick={() => setIsOpen(false)} className="p-1 hover:bg-gray-100 rounded-lg">
-                <X className="w-4 h-4 text-gray-400" />
+          <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+            <h3 className="font-semibold text-gray-900">{t.notifications}</h3>
+            {unreadCount > 0 && (
+              <button 
+                onClick={handleMarkAllRead}
+                className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+              >
+                {t.markAllRead}
               </button>
-            </div>
+            )}
           </div>
 
           {/* Notifications List */}
-          <div className="max-h-[400px] overflow-y-auto divide-y divide-gray-50">
-            {loading && notifications.length === 0 ? (
-              <div className="p-4 space-y-3">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="flex gap-3 items-start animate-pulse">
-                    <div className="w-8 h-8 bg-gray-200 rounded-full flex-shrink-0" />
-                    <div className="flex-1 space-y-1.5">
-                      <div className="h-3 bg-gray-200 rounded w-3/4" />
-                      <div className="h-3 bg-gray-100 rounded w-1/2" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : notifications.length === 0 ? (
-              <div className="py-12 flex flex-col items-center gap-2 text-center px-6">
-                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-2">
+          <div className="max-h-96 overflow-y-auto">
+            {notifications.length === 0 ? (
+              <div className="p-8 text-center">
+                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
                   <Bell className="w-6 h-6 text-gray-400" />
                 </div>
-                <p className="font-medium text-gray-700">{locale.noNotifications}</p>
-                <p className="text-sm text-gray-400">{locale.noNotificationsDesc}</p>
+                <p className="font-medium text-gray-900 mb-1">{t.noNotifications}</p>
+                <p className="text-sm text-gray-500">{t.noNotificationsDesc}</p>
               </div>
             ) : (
-              notifications.map(n => (
-                <button
-                  key={n.id}
-                  onClick={() => handleClick(n)}
-                  className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50 ${
-                    !n.is_read ? 'bg-blue-50/40' : ''
+              notifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  onClick={() => handleNotificationClick(notification.id)}
+                  className={`px-4 py-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${
+                    !notification.isRead ? 'bg-blue-50/50' : ''
                   }`}
                 >
-                  <NotifIcon type={n.type} />
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm leading-snug ${!n.is_read ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}`}>
-                      {n.title}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{n.message}</p>
+                  <div className="flex gap-3">
+                    <div className={`w-10 h-10 ${getNotificationBgColor(notification.type)} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                      {getNotificationIcon(notification.type)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <p className="font-medium text-gray-900 text-sm">
+                          {notification.title}
+                        </p>
+                        {!notification.isRead && (
+                          <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0 mt-1"></div>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-600 mb-1">
+                        {notification.description}
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-500">
+                          {formatTimeAgo(notification.date)}
+                        </span>
+                        {notification.amount && (
+                          <span className="text-sm font-semibold text-gray-900">
+                            ${notification.amount.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                    <span className="text-[11px] text-gray-400 whitespace-nowrap">
-                      {formatTimeAgo(n.created_at, language)}
-                    </span>
-                    {!n.is_read && <span className="w-2 h-2 bg-blue-500 rounded-full" />}
-                  </div>
-                </button>
+                </div>
               ))
             )}
           </div>

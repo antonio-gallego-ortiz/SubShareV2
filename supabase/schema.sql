@@ -245,3 +245,48 @@ CREATE INDEX IF NOT EXISTS idx_payments_subscription ON public.payments(subscrip
 CREATE INDEX IF NOT EXISTS idx_payments_member ON public.payments(member_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON public.notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_invitations_subscription ON public.invitations(subscription_id);
+
+-- Create function to notify when a new member is added to a subscription
+CREATE OR REPLACE FUNCTION public.notify_on_new_subscription_member()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_owner_id uuid;
+  v_owner_name text;
+  v_subscription_name text;
+BEGIN
+  -- Get subscription owner ID and name
+  SELECT owner_id, name INTO v_owner_id, v_subscription_name
+  FROM public.subscriptions
+  WHERE id = NEW.subscription_id;
+
+  -- If the new member is not the owner, create a notification
+  IF NEW.user_id != v_owner_id THEN
+    -- Get owner's full name
+    SELECT full_name INTO v_owner_name
+    FROM public.profiles
+    WHERE id = v_owner_id;
+
+    -- Create notification for the new member
+    INSERT INTO public.notifications (user_id, title, message, type, related_subscription_id, is_read)
+    VALUES (
+      NEW.user_id,
+      '¡Nuevo plan compartido! 🎉',
+      v_owner_name || ' te ha agregado a "' || v_subscription_name || '". ¡Revisa los detalles de tu nueva membresía!',
+      'invitation',
+      NEW.subscription_id,
+      false
+    );
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Drop existing trigger if it exists
+DROP TRIGGER IF EXISTS on_subscription_member_added ON public.subscription_members;
+
+-- Create trigger to automatically notify when member is added
+CREATE TRIGGER on_subscription_member_added
+  AFTER INSERT ON public.subscription_members
+  FOR EACH ROW
+  EXECUTE FUNCTION public.notify_on_new_subscription_member();

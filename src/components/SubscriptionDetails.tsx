@@ -1,229 +1,122 @@
-import { ArrowLeft, Edit, UserPlus, Calendar, RefreshCw, Users as UsersIcon, MoreVertical, Send, Info, Eye, EyeOff, Trash2, Save, X as CloseIcon } from 'lucide-react';
+import { ArrowLeft, Edit, UserPlus, Calendar, RefreshCw, Users as UsersIcon, MoreVertical, Send, Info, Eye, EyeOff, Trash2, Save, X as CloseIcon, ShieldCheck } from 'lucide-react';
 import type { View, Subscription, Member } from '../App';
-import { Navbar } from './Navbar';
+import { NotificationPanel } from './NotificationPanel';
 import { useState } from 'react';
-
-// ── Logo helpers (mirrors Dashboard) ───────────────────────────────────────
-const SD_LOGOS: Record<string, string> = {
-  netflix:'netflix.com', spotify:'spotify.com', disney:'disneyplus.com',
-  disneyplus:'disneyplus.com', youtube:'youtube.com', hbo:'hbomax.com',
-  hbomax:'hbomax.com', amazon:'amazon.com', amazonprime:'primevideo.com',
-  primevideo:'primevideo.com', apple:'apple.com', appletv:'apple.com',
-  chatgpt:'openai.com', openai:'openai.com', microsoft:'microsoft.com',
-  microsoft365:'microsoft.com', office365:'office.com', dropbox:'dropbox.com',
-  twitch:'twitch.tv', discord:'discord.com', slack:'slack.com',
-  zoom:'zoom.us', adobe:'adobe.com', figma:'figma.com', github:'github.com',
-  notion:'notion.so', canva:'canva.com', duolingo:'duolingo.com',
-  paramount:'paramountplus.com', peacock:'peacocktv.com',
-  crunchyroll:'crunchyroll.com', dazn:'dazn.com', mubi:'mubi.com',
-};
-const SD_COLORS: Record<string, string> = {
-  netflix:'bg-red-600', spotify:'bg-green-500', disney:'bg-blue-800',
-  disneyplus:'bg-blue-800', youtube:'bg-red-500', hbo:'bg-purple-700',
-  hbomax:'bg-purple-700', amazon:'bg-yellow-600', amazonprime:'bg-yellow-600',
-  primevideo:'bg-yellow-600', apple:'bg-gray-900', appletv:'bg-gray-900',
-  chatgpt:'bg-teal-600', openai:'bg-teal-600', microsoft:'bg-blue-600',
-  microsoft365:'bg-blue-600', office365:'bg-orange-600', dropbox:'bg-blue-400',
-  twitch:'bg-purple-600', discord:'bg-indigo-500', slack:'bg-purple-500',
-  zoom:'bg-blue-500', adobe:'bg-red-700', figma:'bg-orange-500',
-  github:'bg-gray-900', notion:'bg-gray-800', canva:'bg-cyan-500',
-  duolingo:'bg-green-500', paramount:'bg-blue-700', peacock:'bg-yellow-500',
-  crunchyroll:'bg-orange-500', dazn:'bg-black', mubi:'bg-rose-700',
-};
-const FALLBACK_BG = ['bg-blue-600','bg-purple-600','bg-pink-600','bg-orange-500','bg-teal-600','bg-indigo-600'];
-
-function sdSlug(s: string) { return s.toLowerCase().replace(/[^a-z0-9]/g, ''); }
-function sdDomain(id: string): string | null {
-  const sl = sdSlug(id);
-  return SD_LOGOS[sl] ?? Object.entries(SD_LOGOS).find(([k]) => sl.includes(k) || k.includes(sl))?.[1] ?? null;
-}
-function sdColor(id: string): string {
-  const sl = sdSlug(id);
-  return SD_COLORS[sl] ?? Object.entries(SD_COLORS).find(([k]) => sl.includes(k) || k.includes(sl))?.[1]
-    ?? FALLBACK_BG[sl.split('').reduce((a,c) => a+c.charCodeAt(0),0) % FALLBACK_BG.length];
-}
-
-function ServiceLogo({ id, name }: { id: string; name: string }) {
-  const [step, setStep] = useState<0|1|2>(0);
-  const domain = sdDomain(id);
-  const bg = sdColor(id);
-  const initial = name.charAt(0).toUpperCase();
-
-  const src = step === 0 && domain
-    ? `https://logo.clearbit.com/${domain}`
-    : step === 1 && domain
-    ? `https://www.google.com/s2/favicons?domain=${domain}&sz=128`
-    : null;
-
-  if (src) {
-    return (
-      <div className="w-24 h-24 bg-white rounded-2xl flex items-center justify-center p-3 shadow-md border border-gray-100 flex-shrink-0">
-        <img src={src} alt={name} className="w-full h-full object-contain"
-          onError={() => setStep(p => p < 2 ? (p+1) as 0|1|2 : 2)} />
-      </div>
-    );
-  }
-  return (
-    <div className={`w-24 h-24 ${bg} rounded-2xl flex items-center justify-center text-white font-bold text-4xl flex-shrink-0`}>
-      {initial}
-    </div>
-  );
-}
 
 interface SubscriptionDetailsProps {
   subscription: Subscription;
   onNavigate: (view: View) => void;
   language: 'en' | 'es';
-  onLanguageChange: (lang: 'en' | 'es') => void;
 }
 
-// Initialize with empty members - will be populated from subscription prop or database
-const detailedMembers: Member[] = [];
-
-// Initialize with empty renewal history - will be loaded from database
-const renewalHistory: any[] = [];
-
-const translations = {
-  en: {
-    search: 'Search',
-    dashboard: 'Dashboard',
-    subscriptions: 'Subscriptions',
-    settings: 'Settings',
-    netflixDetails: 'Netflix Details',
-    netflixFamily: 'Netflix Family Plan',
-    month: 'month',
-    activeSubscription: 'Active Subscription',
-    editPlan: 'Edit Plan',
-    nextRenewal: 'Next Renewal',
-    paymentMethod: 'Payment Method',
-    autoRenewal: 'Auto-renewal',
-    groupSize: 'Group Size',
-    members: 'Members',
-    sharedAccountCredentials: 'Shared Account Credentials',
-    showDetails: 'Show Details',
-    hideDetails: 'Hide Details',
-    clickShowDetails: 'Click "Show Details" to view the shared account credentials',
-    email: 'Email',
-    password: 'Password',
-    copy: 'Copy',
-    importantNote: 'Important:',
-    credentialsWarning: 'Keep these credentials private and only share with authorized family members.',
-    familyMembers: 'Family Members',
-    seatsFilled: 'Seats Filled',
-    member: 'Member',
-    fractionAmount: 'Fraction Amount',
-    status: 'Status',
-    actions: 'Actions',
-    paid: 'Paid',
-    pending: 'Pending',
-    sendReminder: 'Send Reminder',
-    removeMember: 'Remove Member',
-    renewalHistory: 'Renewal History',
-    renewedOn: 'Renewed on',
-    completed: 'Completed',
-    paymentDetails: 'Payment Details',
-    nextBillingCycle: 'Next billing cycle will be automatically processed on',
-    cancelSubscription: 'Cancel Subscription',
-    viewBillingHistory: 'View Billing History',
-    backToDashboard: 'Back to Dashboard',
-    editSubscription: 'Edit Subscription',
-    saveChanges: 'Save Changes',
-    cancel: 'Cancel',
-    subscriptionDetails: 'Subscription Details',
-    subscriptionName: 'Subscription Name',
-    totalPrice: 'Total Price',
-    billingCycle: 'Billing Cycle',
-    monthly: 'Monthly',
-    annual: 'Annual',
-    nextPaymentDate: 'Next Payment Date',
-    accountCredentials: 'Account Credentials',
-    accountEmail: 'Account Email',
-    accountPassword: 'Account Password',
-    inviteMembers: 'Invite Members',
-    addMember: 'Add Member',
-    emailPlaceholder: 'member@example.com',
-    costPerPerson: 'Cost per Person',
-    noHistory: 'No Renewal History',
-    noHistoryDesc: 'Renewal history will appear here once payments are processed'
+// Mock data para los miembros con más detalles
+const detailedMembers: Member[] = [
+  {
+    id: '1',
+    name: 'Alice (Owner)',
+    email: 'alice.smith@example.com',
+    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alice',
+    amount: 5.00,
+    status: 'paid',
+    isOwner: true
   },
-  es: {
-    search: 'Buscar',
-    dashboard: 'Panel',
-    subscriptions: 'Suscripciones',
-    settings: 'Configuración',
-    netflixDetails: 'Detalles de Netflix',
-    netflixFamily: 'Plan Familiar Netflix',
-    month: 'mes',
-    activeSubscription: 'Suscripción Activa',
-    editPlan: 'Editar Plan',
-    nextRenewal: 'Próxima Renovación',
-    paymentMethod: 'Método de Pago',
-    autoRenewal: 'Renovación automática',
-    groupSize: 'Tamaño del Grupo',
-    members: 'Miembros',
-    sharedAccountCredentials: 'Credenciales de la Cuenta Compartida',
-    showDetails: 'Mostrar Detalles',
-    hideDetails: 'Ocultar Detalles',
-    clickShowDetails: 'Haz clic en "Mostrar Detalles" para ver las credenciales de la cuenta compartida',
-    email: 'Correo',
-    password: 'Contraseña',
-    copy: 'Copiar',
-    importantNote: 'Importante:',
-    credentialsWarning: 'Mantén estas credenciales privadas y solo compártelas con miembros autorizados de la familia.',
-    familyMembers: 'Miembros de la Familia',
-    seatsFilled: 'Asientos Ocupados',
-    member: 'Miembro',
-    fractionAmount: 'Monto Fraccionado',
-    status: 'Estado',
-    actions: 'Acciones',
-    paid: 'Pagado',
-    pending: 'Pendiente',
-    sendReminder: 'Enviar Recordatorio',
-    removeMember: 'Eliminar Miembro',
-    renewalHistory: 'Historial de Renovación',
-    renewedOn: 'Renovado el',
-    completed: 'Completado',
-    paymentDetails: 'Detalles del Pago',
-    nextBillingCycle: 'El próximo ciclo de facturación se procesará automáticamente el',
-    cancelSubscription: 'Cancelar Suscripción',
-    viewBillingHistory: 'Ver Historial de Facturación',
-    backToDashboard: 'Volver al Panel',
-    editSubscription: 'Editar Suscripción',
-    saveChanges: 'Guardar Cambios',
-    cancel: 'Cancelar',
-    subscriptionDetails: 'Detalles de la Suscripción',
-    subscriptionName: 'Nombre de la Suscripción',
-    totalPrice: 'Precio Total',
-    billingCycle: 'Ciclo de Facturación',
-    monthly: 'Mensual',
-    annual: 'Anual',
-    nextPaymentDate: 'Fecha del Próximo Pago',
-    accountCredentials: 'Credenciales de la Cuenta',
-    accountEmail: 'Correo de la Cuenta',
-    accountPassword: 'Contraseña de la Cuenta',
-    inviteMembers: 'Invitar Miembros',
-    addMember: 'Añadir Miembro',
-    emailPlaceholder: 'miembro@ejemplo.com',
-    costPerPerson: 'Costo por Persona',
-    noHistory: 'Sin Historial de Renovación',
-    noHistoryDesc: 'El historial de renovación aparecerá aquí una vez que se procesen los pagos'
-  }
-};
+  {
+    id: '2',
+    name: 'Bob Jenkins',
+    email: 'bob.j@provider.com',
+    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Bob',
+    amount: 5.00,
+    status: 'pending',
+    isOwner: false
+  },
+  {
+    id: '3',
+    name: 'Charlie Davis',
+    email: 'charlie.d@site.com',
+    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Charlie',
+    amount: 5.00,
+    status: 'paid',
+    isOwner: false
+  },
+  {
+    id: '4',
+    name: 'Diana Martinez',
+    email: 'diana.m@email.com',
+    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Diana',
+    amount: 4.99,
+    status: 'paid',
+    isOwner: false
+  },
+];
 
-export function SubscriptionDetails({ subscription, onNavigate, language, onLanguageChange }: SubscriptionDetailsProps) {
-  const t = translations[language];
+// Mock data para el historial de renovaciones
+const renewalHistory = [
+  {
+    id: '1',
+    date: 'September 15, 2023',
+    period: 'Sep 15 - Oct 15, 2023',
+    totalAmount: 19.99,
+    status: 'completed',
+    payments: [
+      { memberId: '1', memberName: 'Alice', amount: 5.00, status: 'paid', paidDate: 'Sep 15, 2023' },
+      { memberId: '2', memberName: 'Bob', amount: 5.00, status: 'paid', paidDate: 'Sep 16, 2023' },
+      { memberId: '3', memberName: 'Charlie', amount: 5.00, status: 'paid', paidDate: 'Sep 15, 2023' },
+      { memberId: '4', memberName: 'Diana', amount: 4.99, status: 'paid', paidDate: 'Sep 15, 2023' },
+    ]
+  },
+  {
+    id: '2',
+    date: 'August 15, 2023',
+    period: 'Aug 15 - Sep 15, 2023',
+    totalAmount: 19.99,
+    status: 'completed',
+    payments: [
+      { memberId: '1', memberName: 'Alice', amount: 5.00, status: 'paid', paidDate: 'Aug 15, 2023' },
+      { memberId: '2', memberName: 'Bob', amount: 5.00, status: 'paid', paidDate: 'Aug 18, 2023' },
+      { memberId: '3', memberName: 'Charlie', amount: 5.00, status: 'paid', paidDate: 'Aug 15, 2023' },
+      { memberId: '4', memberName: 'Diana', amount: 4.99, status: 'paid', paidDate: 'Aug 16, 2023' },
+    ]
+  },
+  {
+    id: '3',
+    date: 'July 15, 2023',
+    period: 'Jul 15 - Aug 15, 2023',
+    totalAmount: 19.99,
+    status: 'completed',
+    payments: [
+      { memberId: '1', memberName: 'Alice', amount: 5.00, status: 'paid', paidDate: 'Jul 15, 2023' },
+      { memberId: '2', memberName: 'Bob', amount: 5.00, status: 'paid', paidDate: 'Jul 20, 2023' },
+      { memberId: '3', memberName: 'Charlie', amount: 5.00, status: 'paid', paidDate: 'Jul 16, 2023' },
+      { memberId: '4', memberName: 'Diana', amount: 4.99, status: 'paid', paidDate: 'Jul 15, 2023' },
+    ]
+  },
+  {
+    id: '4',
+    date: 'October 15, 2023',
+    period: 'Oct 15 - Nov 15, 2023',
+    totalAmount: 19.99,
+    status: 'pending',
+    payments: [
+      { memberId: '1', memberName: 'Alice', amount: 5.00, status: 'paid', paidDate: 'Oct 15, 2023' },
+      { memberId: '2', memberName: 'Bob', amount: 5.00, status: 'pending', paidDate: '' },
+      { memberId: '3', memberName: 'Charlie', amount: 5.00, status: 'paid', paidDate: 'Oct 15, 2023' },
+      { memberId: '4', memberName: 'Diana', amount: 4.99, status: 'paid', paidDate: 'Oct 16, 2023' },
+    ]
+  },
+];
+
+export function SubscriptionDetails({ subscription, onNavigate, language }: SubscriptionDetailsProps) {
   const [showDetails, setShowDetails] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [openMemberMenu, setOpenMemberMenu] = useState<string | null>(null);
-  // Edit form states — seeded from the subscription prop
-  const [editName, setEditName] = useState(subscription.name);
-  const [editPrice, setEditPrice] = useState(String(subscription.price));
-  const [editBillingCycle, setEditBillingCycle] = useState<'monthly' | 'annual'>(
-    subscription.billingCycle === 'year' || subscription.billingCycle === 'annual' ? 'annual' : 'monthly'
-  );
-  const [editNextPayment, setEditNextPayment] = useState(subscription.nextRenewal || '');
-  const [editEmail, setEditEmail] = useState('');
-  const [editPassword, setEditPassword] = useState('');
+  
+  // Edit form states
+  const [editName, setEditName] = useState('Netflix Family Plan');
+  const [editPrice, setEditPrice] = useState('19.99');
+  const [editBillingCycle, setEditBillingCycle] = useState<'monthly' | 'annual'>('monthly');
+  const [editNextPayment, setEditNextPayment] = useState('10/15/2023');
+  const [editEmail, setEditEmail] = useState('netflix.family@example.com');
+  const [editPassword, setEditPassword] = useState('Family2024!Secure');
   const [editMembers, setEditMembers] = useState(detailedMembers);
   const [newMemberEmail, setNewMemberEmail] = useState('');
 
@@ -242,15 +135,13 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
   };
 
   const handleCancelEdit = () => {
-    // Reset to current subscription values
-    setEditName(subscription.name);
-    setEditPrice(String(subscription.price));
-    setEditBillingCycle(
-      subscription.billingCycle === 'year' || subscription.billingCycle === 'annual' ? 'annual' : 'monthly'
-    );
-    setEditNextPayment(subscription.nextRenewal || '');
-    setEditEmail('');
-    setEditPassword('');
+    // Resetear valores a los originales
+    setEditName('Netflix Family Plan');
+    setEditPrice('19.99');
+    setEditBillingCycle('monthly');
+    setEditNextPayment('10/15/2023');
+    setEditEmail('netflix.family@example.com');
+    setEditPassword('Family2024!Secure');
     setEditMembers(detailedMembers);
     setIsEditMode(false);
   };
@@ -283,7 +174,52 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
   
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar onNavigate={onNavigate} currentView="details" language={language} onLanguageChange={onLanguageChange} />
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-6xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-8">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
+                  S
+                </div>
+                <span className="font-semibold text-gray-900">SubShare</span>
+              </div>
+
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Buscar"
+                  className="pl-4 pr-4 py-1.5 border border-gray-200 rounded-lg bg-gray-50 w-48 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-6">
+              <button 
+                onClick={() => onNavigate('dashboard')}
+                className="text-sm text-gray-600 hover:text-gray-900"
+              >
+                Panel
+              </button>
+              <button className="text-sm text-blue-600 font-medium border-b-2 border-blue-600 pb-4 -mb-4">
+                Suscripciones
+              </button>
+              
+              <div className="flex items-center gap-3 pl-6 border-l border-gray-200">
+                <NotificationPanel language={language} />
+                
+                <img
+                  onClick={() => onNavigate('settings')}
+                  src="https://api.dicebear.com/7.x/avataaars/svg?seed=User"
+                  alt="User"
+                  className="w-8 h-8 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Breadcrumb */}
       <div className="max-w-6xl mx-auto px-6 py-4">
@@ -292,10 +228,10 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
             onClick={() => onNavigate('dashboard')}
             className="hover:text-gray-900"
           >
-            {t.subscriptions}
+            Suscripciones
           </button>
           <span>/</span>
-          <span className="text-gray-900">{subscription.name}</span>
+          <span className="text-gray-900">Detalles de Netflix</span>
         </div>
       </div>
 
@@ -305,15 +241,17 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
         <div className="bg-white rounded-lg border border-gray-200 p-8 mb-6">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
-              <ServiceLogo id={subscription.logo || subscription.name} name={subscription.name} />
+              <div className="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center">
+                <div className="text-red-600 text-2xl font-bold">NETFLIX</div>
+              </div>
               <div>
-                <h1 className="text-2xl font-semibold text-gray-900 mb-1">{subscription.name}</h1>
+                <h1 className="text-2xl font-semibold text-gray-900 mb-1">Netflix Family Plan</h1>
                 <div className="text-xl text-blue-600 font-semibold mb-2">
-                  €{subscription.price.toFixed(2)} <span className="text-sm text-gray-500 font-normal">/ {t.month}</span>
+                  $19.99 <span className="text-sm text-gray-500 font-normal">/ month</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span className="text-sm text-gray-600">{t.activeSubscription}</span>
+                  <span className="text-sm text-gray-600">Active Subscription</span>
                 </div>
               </div>
             </div>
@@ -324,7 +262,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
                 className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
               >
                 <Edit className="w-4 h-4" />
-                {t.editPlan}
+                Edit Plan
               </button>
               
             </div>
@@ -336,34 +274,32 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <div className="flex items-center gap-3 mb-3 text-gray-600">
               <Calendar className="w-5 h-5" />
-              <span className="text-sm">{t.nextRenewal}</span>
+              <span className="text-sm">Next Renewal</span>
             </div>
-            <div className="text-2xl font-semibold text-gray-900">
-              {subscription.nextRenewal && subscription.nextRenewal !== 'N/A' ? subscription.nextRenewal : '—'}
-            </div>
+            <div className="text-2xl font-semibold text-gray-900">Oct 15, 2023</div>
           </div>
 
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <div className="flex items-center gap-3 mb-3 text-gray-600">
               <RefreshCw className="w-5 h-5" />
-              <span className="text-sm">{t.paymentMethod}</span>
+              <span className="text-sm">Payment Method</span>
             </div>
-            <div className="text-2xl font-semibold text-gray-900">{t.autoRenewal}</div>
+            <div className="text-2xl font-semibold text-gray-900">Auto-renewal</div>
           </div>
 
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <div className="flex items-center gap-3 mb-3 text-gray-600">
               <UsersIcon className="w-5 h-5" />
-              <span className="text-sm">{t.groupSize}</span>
+              <span className="text-sm">Group Size</span>
             </div>
-            <div className="text-2xl font-semibold text-gray-900">{subscription.totalMembers ?? subscription.members.length} {t.members}</div>
+            <div className="text-2xl font-semibold text-gray-900">4 Members</div>
           </div>
         </div>
 
         {/* Shared Account Credentials */}
         <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">{t.sharedAccountCredentials}</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Shared Account Credentials</h2>
             <button 
               onClick={() => setShowDetails(!showDetails)}
               className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
@@ -371,12 +307,12 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
               {showDetails ? (
                 <>
                   <EyeOff className="w-4 h-4" />
-                  {t.hideDetails}
+                  Hide Details
                 </>
               ) : (
                 <>
                   <Eye className="w-4 h-4" />
-                  {t.showDetails}
+                  Show Details
                 </>
               )}
             </button>
@@ -384,42 +320,40 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
 
           {!showDetails ? (
             <div className="text-sm text-gray-500 text-center py-8">
-              {t.clickShowDetails}
+              Click "Show Details" to view the shared account credentials
             </div>
           ) : (
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {t.email}
+                  Email
                 </label>
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
-                    value={editEmail || ''}
+                    value="netflix.family@example.com"
                     readOnly
-                    placeholder="—"
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 font-mono text-sm"
                   />
                   <button className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
-                    {t.copy}
+                    Copy
                   </button>
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {t.password}
+                  Password
                 </label>
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
-                    value={editPassword || ''}
+                    value="Family2024!Secure"
                     readOnly
-                    placeholder="—"
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 font-mono text-sm"
                   />
                   <button className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
-                    {t.copy}
+                    Copy
                   </button>
                 </div>
               </div>
@@ -427,7 +361,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
               <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-2">
                 <Info className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
                 <div className="text-sm text-yellow-800">
-                  <strong>{t.importantNote}</strong> {t.credentialsWarning}
+                  <strong>Important:</strong> Keep these credentials private and only share with authorized family members.
                 </div>
               </div>
             </div>
@@ -437,18 +371,18 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
         {/* Family Members */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-gray-900">{t.familyMembers}</h2>
-            <span className="text-sm text-gray-500">3 / 4 {t.seatsFilled}</span>
+            <h2 className="text-lg font-semibold text-gray-900">Family Members</h2>
+            <span className="text-sm text-gray-500">3 / 4 Seats Filled</span>
           </div>
 
           <div className="overflow-hidden rounded-lg border border-gray-200">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">{t.member}</th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">{t.fractionAmount}</th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">{t.status}</th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">{t.actions}</th>
+                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Member</th>
+                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Fraction Amount</th>
+                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
+                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -469,7 +403,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-900">€{member.amount.toFixed(2)}</span>
+                        <span className="font-medium text-gray-900">${member.amount.toFixed(2)}</span>
                         {member.isOwner && (
                           <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
                         )}
@@ -478,12 +412,12 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
                     <td className="px-6 py-4">
                       {member.status === 'paid' && (
                         <span className="px-3 py-1 bg-green-100 text-green-700 text-sm font-medium rounded-full">
-                          {t.paid}
+                          Paid
                         </span>
                       )}
                       {member.status === 'pending' && (
                         <span className="px-3 py-1 bg-yellow-100 text-yellow-700 text-sm font-medium rounded-full">
-                          {t.pending}
+                          Pending
                         </span>
                       )}
                     </td>
@@ -491,7 +425,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
                       {member.status === 'pending' ? (
                         <button className="flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm font-medium">
                           <Send className="w-4 h-4" />
-                          {t.sendReminder}
+                          Send Reminder
                         </button>
                       ) : (
                         <div className="relative">
@@ -512,7 +446,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
                                 className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
                               >
                                 <Trash2 className="w-4 h-4" />
-                                {t.removeMember}
+                                {language === 'es' ? 'Eliminar Miembro' : 'Remove Member'}
                               </button>
                             </div>
                           )}
@@ -530,7 +464,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
 
         {/* Renewal History */}
         <div className="mt-6 bg-white rounded-lg border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-6">{t.renewalHistory}</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-6">Renewal History</h2>
           
           <div className="space-y-4">
             {renewalHistory.map((renewal) => (
@@ -538,19 +472,19 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <div className="font-semibold text-gray-900">{renewal.period}</div>
-                    <div className="text-sm text-gray-500">{t.renewedOn} {renewal.date}</div>
+                    <div className="text-sm text-gray-500">Renewed on {renewal.date}</div>
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="text-right">
-                      <div className="text-lg font-semibold text-gray-900">€{renewal.totalAmount.toFixed(2)}</div>
+                      <div className="text-lg font-semibold text-gray-900">${renewal.totalAmount.toFixed(2)}</div>
                     </div>
                     {renewal.status === 'completed' ? (
                       <span className="px-3 py-1 bg-green-100 text-green-700 text-sm font-medium rounded-full">
-                        {t.completed}
+                        Completed
                       </span>
                     ) : (
                       <span className="px-3 py-1 bg-yellow-100 text-yellow-700 text-sm font-medium rounded-full">
-                        {t.pending}
+                        Pending
                       </span>
                     )}
                   </div>
@@ -558,7 +492,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
 
                 {/* Payment Details */}
                 <div className="mt-4 bg-gray-50 rounded-lg p-4">
-                  <div className="text-sm font-medium text-gray-700 mb-3">{t.paymentDetails}</div>
+                  <div className="text-sm font-medium text-gray-700 mb-3">Payment Details</div>
                   <div className="space-y-2">
                     {renewal.payments.map((payment) => (
                       <div key={payment.memberId} className="flex items-center justify-between text-sm">
@@ -567,11 +501,11 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
                           <span className="text-gray-700">{payment.memberName}</span>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="font-medium text-gray-900">€{payment.amount.toFixed(2)}</span>
+                          <span className="font-medium text-gray-900">${payment.amount.toFixed(2)}</span>
                           {payment.status === 'paid' ? (
                             <span className="text-green-600 text-xs">{payment.paidDate}</span>
                           ) : (
-                            <span className="text-yellow-600 text-xs font-medium">{t.pending}</span>
+                            <span className="text-yellow-600 text-xs font-medium">Pending</span>
                           )}
                         </div>
                       </div>
@@ -588,15 +522,15 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
           <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
             <div className="text-sm text-blue-900">
-              {t.nextBillingCycle} <span className="font-semibold">October 15, 2023</span>
+              Next billing cycle will be automatically processed on <span className="font-semibold">October 15, 2023</span>
             </div>
           </div>
           <div className="flex gap-3">
             <button className="text-sm text-gray-600 hover:text-gray-900">
-              {t.cancelSubscription}
+              Cancel Subscription
             </button>
             <button className="text-sm text-blue-600 hover:text-blue-700">
-              {t.viewBillingHistory}
+              View Billing History
             </button>
           </div>
         </div>
@@ -608,20 +542,20 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
             className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
           >
             <ArrowLeft className="w-4 h-4" />
-            {t.backToDashboard}
+            Back to Dashboard
           </button>
         </div>
       </div>
 
       {/* Edit Mode Modal */}
       {isEditMode && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto">
+        <div className="fixed inset-0 bg-white/80 backdrop-blur-md z-50 overflow-y-auto">
           <div className="max-w-6xl mx-auto px-6 py-8">
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-6 bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
               <div>
-                <h1 className="text-2xl font-semibold text-gray-900 mb-2">{t.editSubscription}</h1>
-                <p className="text-gray-600">{language === 'es' ? 'Actualiza los detalles de tu suscripción y gestiona miembros' : 'Update your subscription details and manage members'}</p>
+                <h1 className="text-2xl font-semibold text-gray-900 mb-2">Editar Suscripción</h1>
+                <p className="text-gray-600">Actualiza los detalles de tu suscripción y gestiona miembros</p>
               </div>
               <button
                 onClick={handleCancelEdit}
@@ -635,25 +569,35 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
               {/* Left Column - Form */}
               <div className="col-span-2 space-y-6">
                 {/* Subscription Name */}
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
-                  <h2 className="font-semibold text-gray-900 mb-4">{t.subscriptionName}</h2>
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-shadow">
+                  <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <Edit className="w-4 h-4 text-blue-600" />
+                    </div>
+                    Nombre de la Suscripción
+                  </h2>
                   <input
                     type="text"
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="e.g., Netflix Family Plan"
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 hover:bg-white transition-colors"
+                    placeholder="ej. Netflix Plan Familiar"
                   />
                 </div>
 
                 {/* Subscription Details */}
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
-                  <h2 className="font-semibold text-gray-900 mb-4">{t.subscriptionDetails}</h2>
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-shadow">
+                  <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                      <Calendar className="w-4 h-4 text-green-600" />
+                    </div>
+                    Detalles de la Suscripción
+                  </h2>
                   
                   <div className="grid grid-cols-2 gap-6 mb-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        {t.totalPrice}
+                        Precio Total
                       </label>
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">€</span>
@@ -661,7 +605,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
                           type="text"
                           value={editPrice}
                           onChange={(e) => setEditPrice(e.target.value)}
-                          className="w-full pl-7 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full pl-7 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 hover:bg-white transition-colors"
                           placeholder="19.99"
                         />
                       </div>
@@ -669,28 +613,28 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        {t.billingCycle}
+                        Ciclo de Facturación
                       </label>
-                      <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
+                      <div className="flex gap-2 p-1 bg-gray-100 rounded-xl">
                         <button
                           onClick={() => setEditBillingCycle('monthly')}
-                          className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
+                          className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
                             editBillingCycle === 'monthly'
-                              ? 'bg-white text-blue-600 shadow-sm'
+                              ? 'bg-white text-blue-600 shadow-md'
                               : 'text-gray-600 hover:text-gray-900'
                           }`}
                         >
-                          {t.monthly}
+                          Mensual
                         </button>
                         <button
                           onClick={() => setEditBillingCycle('annual')}
-                          className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
+                          className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
                             editBillingCycle === 'annual'
-                              ? 'bg-white text-blue-600 shadow-sm'
+                              ? 'bg-white text-blue-600 shadow-md'
                               : 'text-gray-600 hover:text-gray-900'
                           }`}
                         >
-                          {t.annual}
+                          Anual
                         </button>
                       </div>
                     </div>
@@ -698,7 +642,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t.nextPaymentDate}
+                      Próxima Fecha de Pago
                     </label>
                     <div className="relative">
                       <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -706,51 +650,61 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
                         type="text"
                         value={editNextPayment}
                         onChange={(e) => setEditNextPayment(e.target.value)}
-                        placeholder="mm/dd/yyyy"
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="dd/mm/aaaa"
+                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 hover:bg-white transition-colors"
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* Account Credentials */}
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
-                  <h2 className="font-semibold text-gray-900 mb-4">{t.accountCredentials}</h2>
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-shadow">
+                  <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                      <ShieldCheck className="w-4 h-4 text-purple-600" />
+                    </div>
+                    Credenciales de la Cuenta
+                  </h2>
                   
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        {t.email}
+                        Email
                       </label>
                       <input
                         type="email"
                         value={editEmail}
                         onChange={(e) => setEditEmail(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="account@email.com"
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 hover:bg-white transition-colors"
+                        placeholder="cuenta@email.com"
                       />
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        {t.password}
+                        Contraseña
                       </label>
                       <input
                         type="text"
                         value={editPassword}
                         onChange={(e) => setEditPassword(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Password"
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 hover:bg-white transition-colors"
+                        placeholder="Contraseña"
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* Members Management */}
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-shadow">
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className="font-semibold text-gray-900">Manage Members</h2>
-                    <span className="text-sm text-blue-600 font-medium">Auto-Split Enabled</span>
+                    <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+                      <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                        <UsersIcon className="w-4 h-4 text-orange-600" />
+                      </div>
+                      Gestionar Miembros
+                    </h2>
+                    <span className="text-sm text-blue-600 font-medium bg-blue-50 px-3 py-1 rounded-full">División Automática</span>
                   </div>
 
                   <div className="flex gap-3 mb-6">
@@ -759,26 +713,26 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
                       value={newMemberEmail}
                       onChange={(e) => setNewMemberEmail(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && handleAddMember()}
-                      placeholder="friend@example.com"
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="amigo@ejemplo.com"
+                      className="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 hover:bg-white transition-colors"
                     />
                     <button
                       onClick={handleAddMember}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                      className="px-5 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 flex items-center gap-2 shadow-md hover:shadow-lg transition-all"
                     >
                       <UserPlus className="w-4 h-4" />
-                      Add
+                      Agregar
                     </button>
                   </div>
 
                   <div className="space-y-3">
                     {editMembers.map((member) => (
-                      <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div key={member.id} className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-white rounded-xl border border-gray-100 hover:shadow-md transition-all">
                         <div className="flex items-center gap-3">
                           <img
                             src={member.avatar}
                             alt={member.name}
-                            className="w-10 h-10 rounded-full"
+                            className="w-10 h-10 rounded-full ring-2 ring-gray-100"
                           />
                           <div>
                             <div className="font-medium text-gray-900">{member.name}</div>
@@ -786,15 +740,15 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="text-sm font-medium text-gray-700">€{costPerPerson.toFixed(2)}</span>
+                          <span className="text-sm font-medium text-gray-700 bg-white px-3 py-1 rounded-lg border border-gray-200">€{costPerPerson.toFixed(2)}</span>
                           {member.isOwner ? (
-                            <span className="px-3 py-1 bg-white border border-gray-200 text-gray-600 text-sm font-medium rounded">
-                              OWNER
+                            <span className="px-3 py-1 bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-700 text-sm font-medium rounded-lg">
+                              PROPIETARIO
                             </span>
                           ) : (
                             <button
                               onClick={() => handleRemoveMember(member.id)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded"
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -819,7 +773,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLang
                   <div className="space-y-4 mb-6">
                     <div className="flex items-center justify-between pb-3 border-b border-white/20">
                       <span className="text-blue-100">Total Amount</span>
-                      <span className="font-semibold">€{parseFloat(editPrice).toFixed(2)}</span>
+                      <span className="font-semibold">${parseFloat(editPrice).toFixed(2)}</span>
                     </div>
                     <div className="flex items-center justify-between pb-3 border-b border-white/20">
                       <span className="text-blue-100">Total Members</span>

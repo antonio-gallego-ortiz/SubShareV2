@@ -1,12 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
-import { UserPlus, Mail, MoreVertical, Shield, Clock, CheckCircle, Trash2 } from 'lucide-react';
+import { Search, Bell, UserPlus, Mail, MoreVertical, Shield, Clock, CheckCircle, Trash2 } from 'lucide-react';
 import type { View } from '../App';
-import { Navbar } from './Navbar';
+import { NotificationPanel } from './NotificationPanel';
 
 interface MembersProps {
   onNavigate: (view: View) => void;
   language: 'en' | 'es';
-  onLanguageChange: (lang: 'en' | 'es') => void;
 }
 
 interface MemberData {
@@ -22,8 +21,68 @@ interface MemberData {
   lastPayment: string;
 }
 
-// Initialize with empty members - will be loaded from database
-const members: MemberData[] = [];
+const members: MemberData[] = [
+  {
+    id: '1',
+    name: 'Alex Martinez',
+    email: 'alex.m@example.com',
+    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex',
+    role: 'owner',
+    status: 'active',
+    subscriptions: 3,
+    totalContribution: 12.43,
+    joinedDate: 'Jan 2023',
+    lastPayment: '2 days ago'
+  },
+  {
+    id: '2',
+    name: 'Sarah Miller',
+    email: 'sarah.m@gmail.com',
+    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah',
+    role: 'member',
+    status: 'active',
+    subscriptions: 2,
+    totalContribution: 7.83,
+    joinedDate: 'Feb 2023',
+    lastPayment: '1 day ago'
+  },
+  {
+    id: '3',
+    name: 'Bob Jenkins',
+    email: 'bob.j@provider.com',
+    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Bob',
+    role: 'member',
+    status: 'pending',
+    subscriptions: 1,
+    totalContribution: 5.00,
+    joinedDate: 'Mar 2023',
+    lastPayment: 'Pending'
+  },
+  {
+    id: '4',
+    name: 'Charlie Davis',
+    email: 'charlie.d@site.com',
+    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Charlie',
+    role: 'member',
+    status: 'active',
+    subscriptions: 2,
+    totalContribution: 9.60,
+    joinedDate: 'Feb 2023',
+    lastPayment: '3 days ago'
+  },
+  {
+    id: '5',
+    name: 'Emma Wilson',
+    email: 'emma.w@email.com',
+    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Emma',
+    role: 'member',
+    status: 'active',
+    subscriptions: 1,
+    totalContribution: 4.60,
+    joinedDate: 'Mar 2023',
+    lastPayment: '1 week ago'
+  }
+];
 
 const translations = {
   en: {
@@ -56,9 +115,7 @@ const translations = {
     onlyAdminsCanPromote: 'Only administrators can promote members to admin',
     sendReminder: 'Send Reminder',
     removeUser: 'Remove User',
-    joined: 'Joined',
-    noMembers: 'No Members Yet',
-    noMembersDesc: 'Start building your sharing group by inviting the first member'
+    joined: 'Joined'
   },
   es: {
     title: 'Miembros de la Familia',
@@ -90,13 +147,11 @@ const translations = {
     onlyAdminsCanPromote: 'Solo los administradores pueden promover miembros a administrador',
     sendReminder: 'Enviar Recordatorio',
     removeUser: 'Eliminar Usuario',
-    joined: 'Unido',
-    noMembers: 'Sin Miembros Aún',
-    noMembersDesc: 'Comienza a construir tu grupo de compartición invitando al primer miembro'
+    joined: 'Unido'
   }
 };
 
-export function Members({ onNavigate, language, onLanguageChange }: MembersProps) {
+export function Members({ onNavigate, language }: MembersProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [membersData, setMembersData] = useState<MemberData[]>(members);
@@ -155,7 +210,81 @@ export function Members({ onNavigate, language, onLanguageChange }: MembersProps
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar onNavigate={onNavigate} currentView="members" language={language} onLanguageChange={onLanguageChange} />
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-8">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
+                  S
+                </div>
+                <div>
+                  <div className="font-semibold text-gray-900">SubShare</div>
+                  <div className="text-xs text-gray-500">Family Management</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder={t.search}
+                  className="pl-4 pr-4 py-2 border border-gray-200 rounded-lg bg-gray-50 w-64 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <NotificationPanel language={language} />
+              <div 
+                onClick={() => onNavigate('settings')}
+                className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-lg px-2 py-1 transition-colors"
+              >
+                <img
+                  src="https://api.dicebear.com/7.x/avataaars/svg?seed=Alex"
+                  alt="Alex M."
+                  className="w-8 h-8 rounded-full"
+                />
+                <span className="text-sm font-medium text-gray-700">Alex M.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-6">
+          <nav className="flex gap-8">
+            <button 
+              onClick={() => onNavigate('dashboard')}
+              className="py-4 text-sm text-gray-600 hover:text-gray-900"
+            >
+              Dashboard
+            </button>
+            <button 
+              onClick={() => onNavigate('dashboard')}
+              className="py-4 text-sm text-gray-600 hover:text-gray-900"
+            >
+              Subscriptions
+            </button>
+            
+            <button 
+              onClick={() => onNavigate('payments')}
+              className="py-4 text-sm text-gray-600 hover:text-gray-900"
+            >
+              Payments
+            </button>
+            <button 
+              onClick={() => onNavigate('settings')}
+              className="py-4 text-sm text-gray-600 hover:text-gray-900"
+            >
+              Settings
+            </button>
+          </nav>
+        </div>
+      </div>
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 py-8">
@@ -209,24 +338,8 @@ export function Members({ onNavigate, language, onLanguageChange }: MembersProps
 
         {/* Members Table */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          {filteredMembers.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20">
-              <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">
-                <Users className="w-10 h-10 text-gray-400" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">{t.noMembers}</h3>
-              <p className="text-gray-500 mb-6 text-center max-w-md">{t.noMembersDesc}</p>
-              <button 
-                onClick={() => setShowInviteModal(true)}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2"
-              >
-                <UserPlus className="w-5 h-5" />
-                {t.inviteMember}
-              </button>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
+          <div className="overflow-x-auto">
+            <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 uppercase">{t.name}</th>
@@ -275,7 +388,7 @@ export function Members({ onNavigate, language, onLanguageChange }: MembersProps
                       <div className="text-sm text-gray-500">{t.joined} {member.joinedDate}</div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="font-semibold text-gray-900">€{member.totalContribution.toFixed(2)}</div>
+                      <div className="font-semibold text-gray-900">${member.totalContribution.toFixed(2)}</div>
                       <div className="text-sm text-gray-500">{member.lastPayment}</div>
                     </td>
                     <td className="px-6 py-4">
@@ -343,8 +456,7 @@ export function Members({ onNavigate, language, onLanguageChange }: MembersProps
                 ))}
               </tbody>
             </table>
-            </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

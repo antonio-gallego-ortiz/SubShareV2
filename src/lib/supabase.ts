@@ -1,33 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from './database.types';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://vjnynuromqiatlopetsl.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqbnludXJvbXFpYXRsb3BldHNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1ODA5NjQsImV4cCI6MjA4NzE1Njk2NH0.52AtmDaWfD1xkDMIz01imUkp1IdVh7nIR0vAEmC_Gik';
 
-let supabase: any = null;
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-try {
-  if (supabaseUrl && supabaseAnonKey && !supabaseUrl.includes('your-project')) {
-    supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true
-      }
-    });
-  } else {
-    console.warn('⚠️ Supabase credentials not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local');
-    // Create a dummy client for development
-    supabase = createClient<Database>('https://dummy.supabase.co', 'dummy-key', {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-        detectSessionInUrl: false
-      }
-    });
-  }
-} catch (error) {
-  console.error('Error initializing Supabase:', error);
-}
-
-export { supabase };
+export type { Session } from '@supabase/supabase-js';

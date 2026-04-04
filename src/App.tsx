@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Dashboard } from './components/Dashboard';
 import { SubscriptionDetails } from './components/SubscriptionDetails';
 import { AddSubscription } from './components/AddSubscription';
@@ -7,8 +7,6 @@ import { Payments } from './components/Payments';
 import { Settings } from './components/Settings';
 import { Login } from './components/Login';
 import { Register } from './components/Register';
-import AcceptInvitation from './components/AcceptInvitation';
-import { signOut } from './lib/supabaseApi';
 
 export type View = 'dashboard' | 'details' | 'add' | 'members' | 'payments' | 'settings';
 
@@ -43,27 +41,8 @@ function App() {
   const [showRegister, setShowRegister] = useState(false);
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
-  const [language, setLanguage] = useState<'en' | 'es'>('es');
-  const [inviteToken, setInviteToken] = useState<string | null>(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get('invite');
-  });
-
-  // After login, check if there was a pending invite stored in sessionStorage
-  useEffect(() => {
-    if (isLoggedIn) {
-      const stored = sessionStorage.getItem('pendingInviteToken');
-      if (stored) {
-        sessionStorage.removeItem('pendingInviteToken');
-        setInviteToken(stored);
-      }
-    }
-  }, [isLoggedIn]);
-
-  const clearInviteToken = () => {
-    setInviteToken(null);
-    window.history.replaceState({}, '', window.location.pathname);
-  };
+  // Idioma fijo en español
+  const language = 'es';
 
   const handleViewChange = (view: View, subscription?: Subscription) => {
     setCurrentView(view);
@@ -90,37 +69,13 @@ function App() {
     setShowRegister(false);
   };
 
-  const handleLogout = async () => {
-    try {
-      await signOut();
-      setIsLoggedIn(false);
-      setCurrentView('dashboard');
-    } catch (error) {
-      console.error('Error logging out:', error);
-    }
-  };
-
-  // ── Invitation landing page — shown even before login ──────────────────────
-  if (inviteToken) {
-    return (
-      <AcceptInvitation
-        token={inviteToken}
-        isLoggedIn={isLoggedIn}
-        onAccepted={() => { clearInviteToken(); setCurrentView('dashboard'); }}
-        onDeclined={() => { clearInviteToken(); }}
-        onNeedLogin={() => { /* token is stored in sessionStorage by AcceptInvitation */ setShowRegister(false); }}
-      />
-    );
-  }
-
   if (!isLoggedIn) {
     if (showRegister) {
       return (
         <Register 
           onRegister={handleRegister} 
           onBackToLogin={handleBackToLogin}
-          language={language} 
-          onLanguageChange={setLanguage} 
+          language={language}
         />
       );
     }
@@ -128,8 +83,7 @@ function App() {
       <Login 
         onLogin={handleLogin} 
         onShowRegister={handleShowRegister}
-        language={language} 
-        onLanguageChange={setLanguage} 
+        language={language}
       />
     );
   }
@@ -137,27 +91,26 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-50">
       {currentView === 'dashboard' && (
-        <Dashboard onNavigate={handleViewChange} language={language} onLanguageChange={setLanguage} />
+        <Dashboard onNavigate={handleViewChange} language={language} />
       )}
       {currentView === 'details' && selectedSubscription && (
         <SubscriptionDetails 
           subscription={selectedSubscription} 
           onNavigate={handleViewChange}
           language={language}
-          onLanguageChange={setLanguage}
         />
       )}
       {currentView === 'add' && (
-        <AddSubscription onNavigate={handleViewChange} language={language} onLanguageChange={setLanguage} />
+        <AddSubscription onNavigate={handleViewChange} language={language} />
       )}
       {currentView === 'members' && (
-        <Members onNavigate={handleViewChange} language={language} onLanguageChange={setLanguage} />
+        <Members onNavigate={handleViewChange} language={language} />
       )}
       {currentView === 'payments' && (
-        <Payments onNavigate={handleViewChange} language={language} onLanguageChange={setLanguage} />
+        <Payments onNavigate={handleViewChange} language={language} />
       )}
       {currentView === 'settings' && (
-        <Settings onNavigate={handleViewChange} language={language} onLanguageChange={setLanguage} onLogout={handleLogout} />
+        <Settings onNavigate={handleViewChange} language={language} />
       )}
     </div>
   );
