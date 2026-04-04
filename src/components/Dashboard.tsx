@@ -1,6 +1,9 @@
-import { Bell, Search, Settings, CreditCard, Users, MoreVertical, ArrowRight } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Bell, Search, Settings, CreditCard, Users, MoreVertical, ArrowRight, Plus } from 'lucide-react';
 import type { View, Subscription } from '../App';
 import { NotificationPanel } from './NotificationPanel';
+import { getCurrentUserProfile, getCurrentUserName, getUserInitials } from '../lib/userService';
+import { getUserSubscriptions } from '../lib/subscriptionService';
 
 interface DashboardProps {
   onNavigate: (view: View, subscription?: Subscription) => void;
@@ -25,64 +28,54 @@ const translations = {
   yourShare: 'TU PARTE:',
   billingCycle: 'Ciclo de Facturación',
   complete: 'completado',
+  noSubscriptions: 'Sin suscripciones',
+  noSubscriptionsDesc: 'Aún no perteneces a ninguna suscripción. ¡Crea una nueva o espera a una invitación!',
+  loading: 'Cargando...',
 };
 
-const subscriptions: Subscription[] = [
-  {
-    id: '1',
-    name: 'Netflix Premium',
-    logo: 'N',
-    price: 17.99,
-    billingCycle: 'mes',
-    yourShare: 4.50,
-    savings: 0,
-    members: [
-      { id: '1', name: 'Alice', email: 'alice@example.com', avatar: 'A', amount: 4.50, status: 'paid' },
-      { id: '2', name: 'Bob', email: 'bob@example.com', avatar: 'B', amount: 4.50, status: 'paid' },
-      { id: '3', name: 'Charlie', email: 'charlie@example.com', avatar: 'C', amount: 4.50, status: 'paid' },
-    ],
-    billingProgress: 85,
-    nextRenewal: '24 Oct',
-    paymentMethod: 'Auto-renovación',
-    totalMembers: 4,
-    isActive: true
-  },
-  {
-    id: '2',
-    name: 'Spotify Family',
-    logo: 'S',
-    price: 15.99,
-    billingCycle: 'mes',
-    yourShare: 2.67,
-    savings: 0,
-    members: [
-      { id: '1', name: 'Alice', email: 'alice@example.com', avatar: 'A', amount: 2.67, status: 'paid' },
-      { id: '2', name: 'Bob', email: 'bob@example.com', avatar: 'B', amount: 2.67, status: 'pending' },
-      { id: '3', name: 'Charlie', email: 'charlie@example.com', avatar: 'C', amount: 2.67, status: 'paid' },
-    ],
-    billingProgress: 32,
-    totalMembers: 6,
-    isActive: true
-  },
-  {
-    id: '3',
-    name: 'YouTube Family',
-    logo: 'Y',
-    price: 20.99,
-    billingCycle: 'mes',
-    yourShare: 4.20,
-    savings: 0,
-    members: [
-      { id: '1', name: 'Alice', email: 'alice@example.com', avatar: 'A', amount: 4.20, status: 'paid' },
-      { id: '2', name: 'Bob', email: 'bob@example.com', avatar: 'B', amount: 4.20, status: 'paid' },
-    ],
-    billingProgress: 12,
-    totalMembers: 5,
-    isActive: true
-  },
-];
-
 export function Dashboard({ onNavigate, language }: DashboardProps) {
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [userName, setUserName] = useState('Usuario');
+  const [userInitials, setUserInitials] = useState('U');
+  const [subscriptions, setSubscriptions] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadUserData = async () => {
+      setIsLoading(true);
+      try {
+        // Cargar perfil del usuario
+        const profile = await getCurrentUserProfile();
+        setUserProfile(profile);
+
+        // Cargar nombre
+        const name = await getCurrentUserName();
+        setUserName(name);
+
+        // Cargar iniciales
+        const initials = await getUserInitials();
+        setUserInitials(initials);
+
+        // Cargar suscripciones
+        const userSubs = await getUserSubscriptions();
+        // Mapear datos de Supabase al formato de Subscription
+        const formattedSubs = userSubs.map((item: any) => ({
+          ...item.subscription,
+          yourShare: item.amount,
+          isOwner: item.is_owner,
+          members: [],
+        }));
+        setSubscriptions(formattedSubs);
+      } catch (error) {
+        console.error('Error cargando datos:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadUserData();
+  }, []);
+
   // Filtrar solo suscripciones activas
   const activeSubscriptions = subscriptions.filter(sub => sub.isActive === true);
   
@@ -155,12 +148,18 @@ export function Dashboard({ onNavigate, language }: DashboardProps) {
                 onClick={() => onNavigate('settings')}
                 className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-lg px-2 py-1 transition-colors"
               >
-                <img
-                  src="https://api.dicebear.com/7.x/avataaars/svg?seed=Alex"
-                  alt="Alex M."
-                  className="w-8 h-8 rounded-full"
-                />
-                <span className="text-sm font-medium text-gray-700">Alex M.</span>
+                {userProfile?.avatar_url ? (
+                  <img
+                    src={userProfile.avatar_url}
+                    alt={userName}
+                    className="w-8 h-8 rounded-full"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium">
+                    {userInitials}
+                  </div>
+                )}
+                <span className="text-sm font-medium text-gray-700">{userName}</span>
               </div>
             </div>
           </div>
@@ -176,81 +175,84 @@ export function Dashboard({ onNavigate, language }: DashboardProps) {
               </div>
               <button 
                 onClick={() => onNavigate('add')}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2"
               >
+                <Plus className="w-4 h-4" />
                 {translations.addSubscription}
               </button>
             </div>
 
-            <div className="grid grid-cols-3 gap-6">
-              {activeSubscriptions.map((sub, index) => (
-                <div 
-                  key={sub.id} 
-                  className="bg-white rounded-xl p-6 border border-gray-200 hover:shadow-lg transition-shadow cursor-pointer"
-                  onClick={() => onNavigate('details', sub)}
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div 
-                        className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold ${
-                          index === 0 ? 'bg-red-600' : index === 1 ? 'bg-green-600' : 'bg-red-700'
-                        }`}
-                      >
-                        {sub.logo}
-                      </div>
-                      <div>
-                        <div className="font-semibold text-gray-900">{sub.name}</div>
-                        <div className="text-xs text-gray-500">{sub.totalMembers} {translations.screens} • {sub.members.length}+ Miembros</div>
-                      </div>
-                    </div>
-                    <button className="p-1 hover:bg-gray-100 rounded">
-                      
-                    </button>
-                  </div>
-
-                  <div className="flex items-end justify-between mb-3">
-                    <div>
-                      <div className="text-xs text-gray-500 mb-1">{translations.yourShare}</div>
-                      <div className="text-blue-600 font-semibold">{sub.yourShare.toFixed(2)}€</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-lg font-semibold text-gray-900">{sub.price}€/{sub.billingCycle}</div>
-                    </div>
-                  </div>
-
-                  <div className="mb-3">
-                    <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
-                      <span>{translations.billingCycle}</span>
-                      <span>{sub.billingProgress}% {translations.complete}</span>
-                    </div>
-                    <div className="w-full bg-gray-100 rounded-full h-2">
-                      <div 
-                        className="bg-blue-600 h-2 rounded-full transition-all"
-                        style={{ width: `${sub.billingProgress}%` }}
-                      ></div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex -space-x-2">
-                      {sub.members.slice(0, 3).map((member) => (
-                        <div
-                          key={member.id}
-                          className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 border-2 border-white flex items-center justify-center text-white text-xs font-medium"
-                        >
-                          {member.avatar}
-                        </div>
-                      ))}
-                      {sub.members.length > 3 && (
-                        <div className="w-7 h-7 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-gray-600 text-xs font-medium">
-                          +{sub.members.length - 3}
-                        </div>
-                      )}
-                    </div>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <p className="text-gray-500">{translations.loading}</p>
+              </div>
+            ) : activeSubscriptions.length === 0 ? (
+              <div className="bg-white rounded-xl p-12 border border-gray-200 border-dashed text-center">
+                <div className="flex justify-center mb-4">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                    <CreditCard className="w-8 h-8 text-gray-400" />
                   </div>
                 </div>
-              ))}
-            </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">{translations.noSubscriptions}</h3>
+                <p className="text-gray-600 mb-6">{translations.noSubscriptionsDesc}</p>
+                <button 
+                  onClick={() => onNavigate('add')}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium inline-flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  {translations.addSubscription}
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-6">
+                {activeSubscriptions.map((sub, index) => (
+                  <div 
+                    key={sub.id} 
+                    className="bg-white rounded-xl p-6 border border-gray-200 hover:shadow-lg transition-shadow cursor-pointer"
+                    onClick={() => onNavigate('details', sub)}
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold ${
+                            index === 0 ? 'bg-red-600' : index === 1 ? 'bg-green-600' : 'bg-red-700'
+                          }`}
+                        >
+                          {sub.logo}
+                        </div>
+                        <div>
+                          <div className="font-semibold text-gray-900">{sub.name}</div>
+                          <div className="text-xs text-gray-500">{sub.totalMembers} {translations.screens} • {sub.members.length}+ Miembros</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-end justify-between mb-3">
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">{translations.yourShare}</div>
+                        <div className="text-blue-600 font-semibold">{sub.yourShare?.toFixed(2) || '0.00'}€</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-semibold text-gray-900">{sub.price}€/{sub.billing_cycle}</div>
+                      </div>
+                    </div>
+
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+                        <span>{translations.billingCycle}</span>
+                        <span>0% {translations.complete}</span>
+                      </div>
+                      <div className="w-full bg-gray-100 rounded-full h-2">
+                        <div 
+                          className="bg-blue-600 h-2 rounded-full transition-all"
+                          style={{ width: '0%' }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

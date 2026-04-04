@@ -1,7 +1,8 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Search, Bell, Save, User, Lock, CreditCard as CreditCardIcon, Globe, Shield, Mail, Smartphone, LogOut, Eye, AlertTriangle } from 'lucide-react';
 import type { View } from '../App';
 import { NotificationPanel } from './NotificationPanel';
+import { getCurrentUserProfile, getCurrentUserName, getUserInitials, updateUserProfile } from '../lib/userService';
 
 interface SettingsProps {
   onNavigate: (view: View) => void;
@@ -143,7 +144,7 @@ export function Settings({ onNavigate, language }: SettingsProps) {
   const [twoFactor, setTwoFactor] = useState(false);
   const [autoRenewals, setAutoRenewals] = useState(true);
   const [contrastMode, setContrastMode] = useState(false);
-  const [profilePhoto, setProfilePhoto] = useState('https://api.dicebear.com/7.x/avataaars/svg?seed=Alex');
+  const [profilePhoto, setProfilePhoto] = useState('https://api.dicebear.com/7.x/avataaars/svg?seed=User');
   const [showDeactivateModal, setShowDeactivateModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -152,9 +153,40 @@ export function Settings({ onNavigate, language }: SettingsProps) {
   const [verifyPassword, setVerifyPassword] = useState('');
   const [showActualPassword, setShowActualPassword] = useState(false);
   const [actualPassword, setActualPassword] = useState('MySecurePass123');
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [userInitials, setUserInitials] = useState('U');
+  const [isLoading, setIsLoading] = useState(true);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const t = translations[language];
+
+  // Cargar datos del usuario
+  useEffect(() => {
+    const loadUserData = async () => {
+      setIsLoading(true);
+      try {
+        const profile = await getCurrentUserProfile();
+        if (profile) {
+          setFullName(profile.full_name || '');
+          setEmail(profile.email || '');
+          setPhone(profile.phone || '');
+          if (profile.avatar_url) {
+            setProfilePhoto(profile.avatar_url);
+          }
+          const initials = await getUserInitials();
+          setUserInitials(initials);
+        }
+      } catch (error) {
+        console.error('Error cargando perfil:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadUserData();
+  }, []);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -331,11 +363,17 @@ export function Settings({ onNavigate, language }: SettingsProps) {
                 <h2 className="text-lg font-semibold text-gray-900 mb-6">{t.profile}</h2>
                 
                 <div className="flex items-center gap-6 mb-6 pb-6 border-b border-gray-200">
-                  <img
-                    src={profilePhoto}
-                    alt="Profile"
-                    className="w-20 h-20 rounded-full object-cover"
-                  />
+                  {profilePhoto ? (
+                    <img
+                      src={profilePhoto}
+                      alt={fullName || "Profile"}
+                      className="w-20 h-20 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 rounded-full bg-blue-600 flex items-center justify-center text-white text-2xl font-bold">
+                      {userInitials}
+                    </div>
+                  )}
                   <div>
                     <input
                       ref={fileInputRef}
@@ -364,20 +402,49 @@ export function Settings({ onNavigate, language }: SettingsProps) {
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t.fullName}</label>
                     <input
                       type="text"
-                      defaultValue="Alex Martinez"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Tu nombre completo"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t.email}</label>
                     <input
                       type="email"
-                      defaultValue="alex.m@example.com"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={email}
+                      disabled
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
-                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t.phone}</label>
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="+34 612 345 678"
+                    />
+                  </div>
                 </div>
+                
+                <button
+                  onClick={async () => {
+                    const success = await updateUserProfile({
+                      full_name: fullName,
+                      phone: phone,
+                      avatar_url: profilePhoto,
+                    } as any);
+                    if (success) {
+                      alert(language === 'es' ? 'Perfil actualizado exitosamente' : 'Profile updated successfully');
+                    }
+                  }}
+                  className="mt-6 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2"
+                >
+                  <Save className="w-4 h-4" />
+                  {t.saveChanges}
+                </button>
               </div>
             )}
 
