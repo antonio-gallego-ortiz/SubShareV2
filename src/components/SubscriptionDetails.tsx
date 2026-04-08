@@ -247,7 +247,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language }: Subs
               <div>
                 <h1 className="text-2xl font-semibold text-gray-900 mb-1">Netflix Family Plan</h1>
                 <div className="text-xl text-blue-600 font-semibold mb-2">
-                  $19.99 <span className="text-sm text-gray-500 font-normal">/ month</span>
+                  €19.99 <span className="text-sm text-gray-500 font-normal">/ month</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -403,7 +403,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language }: Subs
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-900">${member.amount.toFixed(2)}</span>
+                        <span className="font-medium text-gray-900">€{member.amount.toFixed(2)}</span>
                         {member.isOwner && (
                           <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
                         )}
@@ -476,7 +476,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language }: Subs
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="text-right">
-                      <div className="text-lg font-semibold text-gray-900">${renewal.totalAmount.toFixed(2)}</div>
+                      <div className="text-lg font-semibold text-gray-900">€{renewal.totalAmount.toFixed(2)}</div>
                     </div>
                     {renewal.status === 'completed' ? (
                       <span className="px-3 py-1 bg-green-100 text-green-700 text-sm font-medium rounded-full">
@@ -501,7 +501,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language }: Subs
                           <span className="text-gray-700">{payment.memberName}</span>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="font-medium text-gray-900">${payment.amount.toFixed(2)}</span>
+                          <span className="font-medium text-gray-900">€{payment.amount.toFixed(2)}</span>
                           {payment.status === 'paid' ? (
                             <span className="text-green-600 text-xs">{payment.paidDate}</span>
                           ) : (
@@ -773,7 +773,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language }: Subs
                   <div className="space-y-4 mb-6">
                     <div className="flex items-center justify-between pb-3 border-b border-white/20">
                       <span className="text-blue-100">Total Amount</span>
-                      <span className="font-semibold">${parseFloat(editPrice).toFixed(2)}</span>
+                      <span className="font-semibold">€{parseFloat(editPrice).toFixed(2)}</span>
                     </div>
                     <div className="flex items-center justify-between pb-3 border-b border-white/20">
                       <span className="text-blue-100">Total Members</span>
@@ -782,7 +782,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language }: Subs
                     <div className="pt-2">
                       <div className="text-blue-100 text-sm mb-2">Cost per Person</div>
                       <div className="text-3xl font-bold">
-                        ${costPerPerson.toFixed(2)}
+                        €{costPerPerson.toFixed(2)}
                         <span className="text-base font-normal text-blue-100"> / {editBillingCycle === 'monthly' ? 'month' : 'year'}</span>
                       </div>
                     </div>

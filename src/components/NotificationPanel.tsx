@@ -54,7 +54,7 @@ const mockNotifications: Notification[] = [
     id: '1',
     type: 'payment_completed',
     title: 'Sarah Miller paid for Netflix Premium',
-    description: 'Payment of $5.00 received successfully',
+    description: 'Payment of €5.00 received successfully',
     amount: 5.00,
     date: '2023-10-15T14:30:00',
     isRead: false
@@ -63,7 +63,7 @@ const mockNotifications: Notification[] = [
     id: '2',
     type: 'payment_pending',
     title: 'Bob Jenkins - Netflix Premium',
-    description: 'Payment of $5.00 is pending',
+    description: 'Payment of €5.00 is pending',
     amount: 5.00,
     date: '2023-10-15T10:00:00',
     isRead: false

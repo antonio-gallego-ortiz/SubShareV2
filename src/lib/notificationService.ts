@@ -153,7 +153,7 @@ export async function notifyPaymentDueIn3Days(
   return createNotification({
     userId,
     title: `Recordatorio de pago ⏰`,
-    message: `Tu pago de $${amount.toFixed(2)} para "${subscriptionName}" vence en 3 días (${dueDate}). ¡No olvides realizar el pago!`,
+    message: `Tu pago de €${amount.toFixed(2)} para "${subscriptionName}" vence en 3 días (${dueDate}). ¡No olvides realizar el pago!`,
     type: 'reminder',
     relatedSubscriptionId: subscriptionId,
   });

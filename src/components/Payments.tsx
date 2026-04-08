@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Search, Bell, Download, Filter, CreditCard, CheckCircle, Clock, XCircle, Calendar, X, DollarSign } from 'lucide-react';
 import type { View } from '../App';
 import { NotificationPanel } from './NotificationPanel';
+import { Sidebar } from './Sidebar';
 
 interface PaymentsProps {
   onNavigate: (view: View) => void;
@@ -214,7 +215,9 @@ export function Payments({ onNavigate, language }: PaymentsProps) {
   const upcomingBills = 3;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50">
+      <Sidebar currentView="payments" onNavigate={onNavigate} />
+      <div className="flex-1 overflow-auto">
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-6 py-4">
@@ -306,7 +309,7 @@ export function Payments({ onNavigate, language }: PaymentsProps) {
                 <CheckCircle className="w-5 h-5 text-green-600" />
               </div>
             </div>
-            <div className="text-3xl font-semibold text-gray-900 mb-2">${totalPaidThisMonth.toFixed(2)}</div>
+            <div className="text-3xl font-semibold text-gray-900 mb-2">€{totalPaidThisMonth.toFixed(2)}</div>
             <div className="text-sm text-green-600">↗ 7 successful transactions</div>
           </div>
 
@@ -411,7 +414,7 @@ export function Payments({ onNavigate, language }: PaymentsProps) {
                       <div className="text-gray-900">{transaction.member}</div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="font-semibold text-gray-900">${transaction.amount.toFixed(2)}</div>
+                      <div className="font-semibold text-gray-900">€{transaction.amount.toFixed(2)}</div>
                     </td>
                     <td className="px-6 py-4">
                       {transaction.status === 'completed' && (
@@ -489,7 +492,7 @@ export function Payments({ onNavigate, language }: PaymentsProps) {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">{t.amount}:</span>
-                    <span className="text-lg font-semibold text-blue-600">${selectedTransaction.amount.toFixed(2)}</span>
+                    <span className="text-lg font-semibold text-blue-600">€{selectedTransaction.amount.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -551,6 +554,7 @@ export function Payments({ onNavigate, language }: PaymentsProps) {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

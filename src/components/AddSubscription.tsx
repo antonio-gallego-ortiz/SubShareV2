@@ -228,7 +228,7 @@ export function AddSubscription({ onNavigate, language }: AddSubscriptionProps) 
                     Total Price
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">€</span>
                     <input
                       type="text"
                       value={price}
@@ -385,7 +385,7 @@ export function AddSubscription({ onNavigate, language }: AddSubscriptionProps) 
               <div className="space-y-4 mb-6">
                 <div className="flex items-center justify-between pb-3 border-b border-white/20">
                   <span className="text-blue-100">Total Amount</span>
-                  <span className="font-semibold">${parseFloat(price).toFixed(2)}</span>
+                  <span className="font-semibold">€{parseFloat(price).toFixed(2)}</span>
                 </div>
                 <div className="flex items-center justify-between pb-3 border-b border-white/20">
                   <span className="text-blue-100">Total Members</span>
@@ -394,7 +394,7 @@ export function AddSubscription({ onNavigate, language }: AddSubscriptionProps) 
                 <div className="pt-2">
                   <div className="text-blue-100 text-sm mb-2">Cost per Person</div>
                   <div className="text-3xl font-bold">
-                    ${costPerPerson.toFixed(2)}
+                    €{costPerPerson.toFixed(2)}
                     <span className="text-base font-normal text-blue-100"> / month</span>
                   </div>
                 </div>

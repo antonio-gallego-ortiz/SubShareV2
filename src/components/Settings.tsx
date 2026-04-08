@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Search, Bell, Save, User, Lock, CreditCard as CreditCardIcon, Globe, Shield, Mail, Smartphone, LogOut, Eye, AlertTriangle } from 'lucide-react';
 import type { View } from '../App';
 import { NotificationPanel } from './NotificationPanel';
+import { Sidebar } from './Sidebar';
 import { getCurrentUserProfile, getCurrentUserName, getUserInitials, updateUserProfile } from '../lib/userService';
 
 interface SettingsProps {
@@ -231,7 +232,9 @@ export function Settings({ onNavigate, language }: SettingsProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50">
+      <Sidebar currentView="settings" onNavigate={onNavigate} />
+      <div className="flex-1 overflow-auto">
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-6 py-4">
@@ -826,6 +829,7 @@ export function Settings({ onNavigate, language }: SettingsProps) {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
