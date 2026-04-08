@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Eye, EyeOff, Mail, Lock, LogIn, HelpCircle, CheckCircle, X } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, LogIn, HelpCircle, CheckCircle, X, Loader } from 'lucide-react';
+import { signInWithEmail } from '../lib/userService';
 import logo from 'figma:asset/19c0aca0abb708d38d652971739de366b369956a.png';
 
 interface LoginProps {
@@ -8,7 +9,6 @@ interface LoginProps {
   language: 'en' | 'es';
 }
 
-// Translations - Solo español
 const translations = {
   welcomeBack: 'Bienvenido de Nuevo',
   signIn: 'Por favor inicia sesión en tu cuenta',
@@ -21,7 +21,10 @@ const translations = {
   dismiss: 'DESCARTAR',
   needHelp: '¿Necesitas Ayuda?',
   emailPlaceholder: 'alex.m@ejemplo.com',
-  tagline: 'Gestión para Todos'
+  tagline: 'Gestión para Todos',
+  errorInvalidCredentials: 'Email o contraseña incorrectos',
+  errorEmptyFields: 'Por favor completa todos los campos',
+  logging: 'Iniciando sesión...',
 };
 
 export function Login({ onLogin, onShowRegister, language }: LoginProps) {
@@ -29,11 +32,35 @@ export function Login({ onLogin, onShowRegister, language }: LoginProps) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [showSecurityAlert, setShowSecurityAlert] = useState(true);
+
   const t = translations;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onLogin();
+    setError('');
+
+    if (!email || !password) {
+      setError(t.errorEmptyFields);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await signInWithEmail(email, password);
+      
+      if (result.success && result.user) {
+        onLogin();
+      } else {
+        setError(result.error || t.errorInvalidCredentials);
+      }
+    } catch (err: any) {
+      setError(err?.message ||  t.errorInvalidCredentials);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const toggleTheme = () => {
@@ -79,6 +106,16 @@ export function Login({ onLogin, onShowRegister, language }: LoginProps) {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Error Alert */}
+              {error && (
+                <div className="p-4 bg-red-900/30 border border-red-700/50 rounded-lg flex items-start gap-3">
+                  <X className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-red-100">{error}</p>
+                  </div>
+                </div>
+              )}
+
               {/* Email Input */}
               <div>
                 <label className="block text-xs font-semibold text-slate-400 mb-2 tracking-wider">
@@ -131,10 +168,24 @@ export function Login({ onLogin, onShowRegister, language }: LoginProps) {
               {/* Login Button */}
               <button
                 type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3.5 px-6 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30"
+                disabled={isLoading}
+                className={`w-full font-semibold py-3.5 px-6 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg ${
+                  isLoading
+                    ? 'bg-blue-600/50 text-white cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20 hover:shadow-blue-500/30'
+                }`}
               >
-                {t.login}
-                <LogIn className="w-5 h-5" />
+                {isLoading ? (
+                  <>
+                    <Loader className="w-5 h-5 animate-spin" />
+                    {t.logging}
+                  </>
+                ) : (
+                  <>
+                    {t.login}
+                    <LogIn className="w-5 h-5" />
+                  </>
+                )}
               </button>
 
               {/* Links */}

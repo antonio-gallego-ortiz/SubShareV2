@@ -260,7 +260,7 @@ export function Settings({ onNavigate, language }: SettingsProps) {
                 />
               </div>
               
-              <NotificationPanel language={language} />
+              <NotificationPanel />
               <div 
                 onClick={() => onNavigate('settings')}
                 className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-lg px-2 py-1 transition-colors"

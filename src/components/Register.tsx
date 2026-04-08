@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Volume2, CheckCircle } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Volume2, CheckCircle, X, Loader } from 'lucide-react';
+import { signUpWithEmail } from '../lib/userService';
 import logo from 'figma:asset/19c0aca0abb708d38d652971739de366b369956a.png';
 
 interface RegisterProps {
@@ -8,7 +9,6 @@ interface RegisterProps {
   language: 'en' | 'es';
 }
 
-// Translations - Solo español
 const translations = {
   createAccount: 'Crear Cuenta',
   signUp: 'Únete a SubShare y comienza a gestionar suscripciones',
@@ -25,7 +25,12 @@ const translations = {
   dismiss: 'DESCARTAR',
   tagline: 'Gestión para Todos',
   passwordRequirements: 'Mínimo 8 caracteres',
-  agreeToTerms: 'Al crear una cuenta, aceptas nuestros Términos y Política de Privacidad'
+  agreeToTerms: 'Al crear una cuenta, aceptas nuestros Términos y Política de Privacidad',
+  errorEmptyFields: 'Por favor completa todos los campos',
+  errorPasswordMismatch: 'Las contraseñas no coinciden',
+  errorWeakPassword: 'La contraseña debe tener al menos 8 caracteres',
+  errorInvalidEmail: 'Por favor ingresa un email válido',
+  registering: 'Creando cuenta...',
 };
 
 export function Register({ onRegister, onBackToLogin, language }: RegisterProps) {
@@ -36,11 +41,50 @@ export function Register({ onRegister, onBackToLogin, language }: RegisterProps)
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
   const t = translations;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onRegister();
+    setError('');
+
+    // Validaciones
+    if (!fullName || !email || !password || !confirmPassword) {
+      setError(t.errorEmptyFields);
+      return;
+    }
+
+    if (password.length < 8) {
+      setError(t.errorWeakPassword);
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError(t.errorPasswordMismatch);
+      return;
+    }
+
+    if (!email.includes('@')) {
+      setError(t.errorInvalidEmail);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await signUpWithEmail(email, password, fullName);
+
+      if (result.success && result.user) {
+        onRegister();
+      } else {
+        setError(result.error || 'Error al crear la cuenta');
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Error al crear la cuenta');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const toggleTheme = () => {
@@ -91,6 +135,16 @@ export function Register({ onRegister, onBackToLogin, language }: RegisterProps)
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Error Alert */}
+              {error && (
+                <div className="p-4 bg-red-900/30 border border-red-700/50 rounded-lg flex items-start gap-3">
+                  <X className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-red-100">{error}</p>
+                  </div>
+                </div>
+              )}
+
               {/* Full Name Input */}
               <div>
                 <label className="block text-xs font-semibold text-slate-400 mb-2 tracking-wider">
@@ -193,10 +247,24 @@ export function Register({ onRegister, onBackToLogin, language }: RegisterProps)
               {/* Register Button */}
               <button
                 type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3.5 px-6 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30"
+                disabled={isLoading}
+                className={`w-full font-semibold py-3.5 px-6 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg ${
+                  isLoading
+                    ? 'bg-blue-600/50 text-white cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20 hover:shadow-blue-500/30'
+                }`}
               >
-                {t.register}
-                <ArrowRight className="w-5 h-5" />
+                {isLoading ? (
+                  <>
+                    <Loader className="w-5 h-5 animate-spin" />
+                    {t.registering}
+                  </>
+                ) : (
+                  <>
+                    {t.register}
+                    <ArrowRight className="w-5 h-5" />
+                  </>
+                )}
               </button>
 
               {/* Terms */}

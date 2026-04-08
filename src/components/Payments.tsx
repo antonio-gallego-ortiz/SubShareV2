@@ -244,7 +244,7 @@ export function Payments({ onNavigate, language }: PaymentsProps) {
                   className="pl-4 pr-4 py-2 border border-gray-200 rounded-lg bg-gray-50 w-64 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-              <NotificationPanel language={language} />
+              <NotificationPanel />
               <div 
                 onClick={() => onNavigate('settings')}
                 className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-lg px-2 py-1 transition-colors"

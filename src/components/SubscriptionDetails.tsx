@@ -207,7 +207,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language }: Subs
               </button>
               
               <div className="flex items-center gap-3 pl-6 border-l border-gray-200">
-                <NotificationPanel language={language} />
+                <NotificationPanel />
                 
                 <img
                   onClick={() => onNavigate('settings')}

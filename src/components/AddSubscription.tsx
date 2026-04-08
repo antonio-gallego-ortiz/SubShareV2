@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, UserPlus, Calendar, Trash2, Info, ShieldCheck, AlertCircle, CheckCircle, Loader } from 'lucide-react';
 import type { View } from '../App';
 import { NotificationPanel } from './NotificationPanel';
 import { validateEmailExists, getProfileByEmail } from '../lib/emailService';
 import { createSubscriptionWithMembers } from '../lib/subscriptionService';
+import { createInvitation } from '../lib/invitationService';
+import { getCurrentUserProfile, getCurrentUserEmail, getCurrentUserName } from '../lib/userService';
 
 interface AddSubscriptionProps {
   onNavigate: (view: View) => void;
@@ -110,29 +112,53 @@ export function AddSubscription({ onNavigate, language }: AddSubscriptionProps) 
 
     setIsSaving(true);
     try {
-      // Obtener el ID del usuario actual (por ahora usamos mock)
-      const userId = '1'; // En producción, esto vendría de la sesión de auth
+      // Obtener el usuario actual desde Supabase
+      const currentUser = await getCurrentUserProfile();
+      const currentUserEmail = await getCurrentUserEmail();
+      const currentUserName = await getCurrentUserName();
+
+      if (!currentUser) {
+        setValidationError('No se pudo obtener los datos del usuario. Por favor inicia sesión de nuevo.');
+        setIsSaving(false);
+        return;
+      }
+
+      const subscriptionName = customName || services.find(s => s.id === selectedService)?.name || 'Mi Suscripción';
 
       const subscriptionId = await createSubscriptionWithMembers(
         {
-          name: customName || services.find(s => s.id === selectedService)?.name || 'Mi Suscripción',
+          name: subscriptionName,
           logo: selectedService,
           price: parseFloat(price),
           billingCycle: billingCycle === 'monthly' ? 'month' : 'year',
           nextRenewal: new Date(nextPaymentDate),
           memberEmails: members.filter(m => !m.isOwner).map(m => m.email),
         },
-        userId
+        currentUser.id
       );
 
       if (subscriptionId) {
-        // Navegar al dashboard
-        onNavigate('dashboard');
+        // Enviar invitaciones a los miembros
+        const invitedMembers = members.filter(m => !m.isOwner);
+        for (const member of invitedMembers) {
+          await createInvitation(
+            subscriptionId,
+            currentUser.id,
+            member.email,
+            currentUserName,
+            subscriptionName
+          );
+        }
+
+        // Mostrar éxito y navegar
+        setTimeout(() => {
+          onNavigate('dashboard');
+        }, 1500);
       } else {
         setValidationError('Error al guardar la suscripción. Intenta de nuevo.');
       }
-    } catch (error) {
-      setValidationError('Error al guardar la suscripción. Intenta de nuevo.');
+    } catch (error: any) {
+      setValidationError(error?.message || 'Error al guardar la suscripción. Intenta de nuevo.');
       console.error(error);
     } finally {
       setIsSaving(false);
@@ -175,7 +201,7 @@ export function AddSubscription({ onNavigate, language }: AddSubscriptionProps) 
               
               
               <div className="flex items-center gap-3 pl-6 border-l border-gray-200">
-                <NotificationPanel language={language} />
+                <NotificationPanel />
                 <div 
                   onClick={() => onNavigate('settings')}
                   className="w-9 h-9 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 font-medium cursor-pointer hover:bg-orange-200 transition-colors"

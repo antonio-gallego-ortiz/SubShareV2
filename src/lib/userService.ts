@@ -164,3 +164,133 @@ export async function signOut(): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Inicia sesión con email y contraseña
+ * @param email - Email del usuario
+ * @param password - Contraseña del usuario
+ * @returns Usuario autenticado o error
+ */
+export async function signInWithEmail(
+  email: string,
+  password: string
+): Promise<{ success: boolean; error?: string; user?: any }> {
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      console.error('Error iniciando sesión:', error);
+      return {
+        success: false,
+        error: error.message || 'Error al iniciar sesión',
+      };
+    }
+
+    if (!data.user) {
+      return {
+        success: false,
+        error: 'No se pudo obtener datos del usuario',
+      };
+    }
+
+    return {
+      success: true,
+      user: data.user,
+    };
+  } catch (error: any) {
+    console.error('Error en signInWithEmail:', error);
+    return {
+      success: false,
+      error: error?.message || 'Error al iniciar sesión',
+    };
+  }
+}
+
+/**
+ * Registra un nuevo usuario
+ * @param email - Email del usuario
+ * @param password - Contraseña del usuario
+ * @param fullName - Nombre completo del usuario
+ * @returns Usuario registrado o error
+ */
+export async function signUpWithEmail(
+  email: string,
+  password: string,
+  fullName: string
+): Promise<{ success: boolean; error?: string; user?: any }> {
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (error) {
+      console.error('Error registrando usuario:', error);
+      return {
+        success: false,
+        error: error.message || 'Error al registrar usuario',
+      };
+    }
+
+    if (!data.user) {
+      return {
+        success: false,
+        error: 'No se pudo crear el usuario',
+      };
+    }
+
+    // Crear perfil del usuario
+    const { error: profileError } = await supabase.from('profiles').insert({
+      id: data.user.id,
+      email: email,
+      full_name: fullName,
+    });
+
+    if (profileError) {
+      console.error('Error creando perfil:', profileError);
+      return {
+        success: false,
+        error: 'Error al crear el perfil del usuario',
+      };
+    }
+
+    return {
+      success: true,
+      user: data.user,
+    };
+  } catch (error: any) {
+    console.error('Error en signUpWithEmail:', error);
+    return {
+      success: false,
+      error: error?.message || 'Error al registrar usuario',
+    };
+  }
+}
+
+/**
+ * Obtiene el perfil de un usuario por email
+ * @param email - Email del usuario
+ * @returns Perfil del usuario o null
+ */
+export async function getProfileByEmail(email: string): Promise<UserProfile | null> {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('email', email)
+      .single();
+
+    if (error) {
+      console.error('Error obteniendo perfil:', error);
+      return null;
+    }
+
+    return data as UserProfile;
+  } catch (error) {
+    console.error('Error en getProfileByEmail:', error);
+    return null;
+  }
+}
