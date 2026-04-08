@@ -538,28 +538,7 @@ export function Settings({ onNavigate, language }: SettingsProps) {
                 
                 <div className="space-y-6">
                   <div className="flex items-center justify-between pb-6 border-b border-gray-200">
-                    <div className="flex items-center gap-3">
-                      <Mail className="w-5 h-5 text-gray-600" />
-                      <div>
-                        <div className="font-medium text-gray-900">{t.emailNotifications}</div>
-                        <div className="text-sm text-gray-600">{t.emailNotificationsDesc}</div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setEmailNotifications(!emailNotifications)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        emailNotifications ? 'bg-blue-600' : 'bg-gray-300'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          emailNotifications ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
                   </div>
-
-                  
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
