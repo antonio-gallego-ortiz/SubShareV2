@@ -277,30 +277,7 @@ export function Settings({ onNavigate, language }: SettingsProps) {
         </div>
       </div>
 
-      {/* Navigation */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6">
-          <nav className="flex gap-8">
-            <button 
-              onClick={() => onNavigate('dashboard')}
-              className="py-4 text-sm text-gray-600 hover:text-gray-900"
-            >
-              Dashboard
-            </button>
-            
-            
-            <button 
-              onClick={() => onNavigate('payments')}
-              className="py-4 text-sm text-gray-600 hover:text-gray-900"
-            >
-              Payments
-            </button>
-            <button className="py-4 text-sm text-blue-600 font-medium border-b-2 border-blue-600">
-              Settings
-            </button>
-          </nav>
-        </div>
-      </div>
+      
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 py-8">
