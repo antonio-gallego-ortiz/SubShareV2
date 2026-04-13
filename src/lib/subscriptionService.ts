@@ -138,55 +138,8 @@ export async function validateAndAddMembers(
         continue;
       }
 
-      // Agregar el miembro a la suscripción
-      const { error: memberError } = await supabase
-        .from('subscription_members')
-        .insert({
-          subscription_id: subscriptionId,
-          user_id: profile.id,
-          amount,
-          is_owner: false,
-        });
-
-      if (memberError) {
-        // Verificar si es un error de duplicado
-        if (memberError.code === '23505') {
-          results.failed.push({
-            email,
-            reason: 'Este usuario ya está en la suscripción',
-          });
-        } else {
-          results.failed.push({
-            email,
-            reason: `Error al agregar: ${memberError.message}`,
-          });
-        }
-        continue;
-      }
-
-      // Enviar notificación al nuevo miembro
-      const ownerProfile = await getProfileByEmail(
-        (await supabase.from('profiles').select('email').eq('id', ownerId).single()).data?.email || ''
-      );
-
-      const ownerName = ownerProfile?.full_name || 'Un usuario';
-
-      // Obtener nombre de la suscripción
-      const { data: subscription } = await supabase
-        .from('subscriptions')
-        .select('name')
-        .eq('id', subscriptionId)
-        .single();
-
-      const subscriptionName = subscription?.name || 'una suscripción';
-
-      await notifyNewSubscriptionInvitation(
-        profile.id,
-        subscriptionName,
-        subscriptionId,
-        ownerName
-      );
-
+      // Solo validar que el usuario existe, no agregarlo aún
+      // Las invitaciones se crearán en AddSubscription.tsx
       results.added.push(email);
     } catch (error) {
       console.error(`Error procesando email ${email}:`, error);
@@ -202,11 +155,23 @@ export async function validateAndAddMembers(
 
 /**
  * Obtiene todas las suscripciones de un usuario
- * @param userId - ID del usuario
+ * @param userId - ID del usuario (opcional, obtiene el actual si no se proporciona)
  * @returns Array de suscripciones
  */
-export async function getUserSubscriptions(userId: string) {
+export async function getUserSubscriptions(userId?: string) {
   try {
+    let userIdToUse = userId;
+
+    // Si no se proporciona userId, obtener el usuario actual
+    if (!userIdToUse) {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        console.error('Error obteniendo usuario actual:', userError);
+        return [];
+      }
+      userIdToUse = user.id;
+    }
+
     const { data, error } = await supabase
       .from('subscription_members')
       .select(
@@ -221,21 +186,28 @@ export async function getUserSubscriptions(userId: string) {
           owner_id,
           is_active,
           created_at,
-          updated_at
+          updated_at,
+          total_members
         ),
         amount,
         is_owner
       `
       )
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+      .eq('user_id', userIdToUse);
 
     if (error) {
       console.error('Error obteniendo suscripciones del usuario:', error);
       return [];
     }
 
-    return data || [];
+    // Ordenar localmente por fecha de creación descendente
+    const sortedData = (data || []).sort((a: any, b: any) => {
+      const dateA = new Date(a.subscription?.created_at || 0).getTime();
+      const dateB = new Date(b.subscription?.created_at || 0).getTime();
+      return dateB - dateA;
+    });
+
+    return sortedData;
   } catch (error) {
     console.error('Error en getUserSubscriptions:', error);
     return [];

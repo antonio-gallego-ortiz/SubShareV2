@@ -7,6 +7,7 @@ interface SubscriptionDetailsProps {
   subscription: Subscription;
   onNavigate: (view: View) => void;
   language: 'en' | 'es';
+  onLogout?: () => void;
 }
 
 // Mock data para los miembros con más detalles
@@ -207,7 +208,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language }: Subs
               </button>
               
               <div className="flex items-center gap-3 pl-6 border-l border-gray-200">
-                <NotificationPanel />
+                <NotificationPanel onNavigate={onNavigate} />
                 
                 <img
                   onClick={() => onNavigate('settings')}

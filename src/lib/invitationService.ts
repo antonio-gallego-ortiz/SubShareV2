@@ -135,6 +135,8 @@ export async function acceptInvitation(
   userId: string
 ): Promise<boolean> {
   try {
+    console.log('acceptInvitation iniciado - invitationId:', invitationId, 'userId:', userId);
+    
     // Obtener los detalles de la invitación
     const { data: invitation, error: invError } = await supabase
       .from('invitations')
@@ -148,6 +150,7 @@ export async function acceptInvitation(
     }
 
     const subscriptionId = invitation.subscription_id;
+    console.log('subscriptionId obtenido:', subscriptionId);
 
     // Obtener información de la suscripción para calcular el costo
     const { data: subscription, error: subError } = await supabase
@@ -162,21 +165,25 @@ export async function acceptInvitation(
     }
 
     const costPerPerson = subscription.price / subscription.total_members;
+    console.log('Costo por persona calculado:', costPerPerson);
 
     // Agregar usuario a subscription_members
-    const { error: memberError } = await supabase
+    const { data: memberData, error: memberError } = await supabase
       .from('subscription_members')
       .insert({
         subscription_id: subscriptionId,
         user_id: userId,
         amount: costPerPerson,
         is_owner: false,
-      });
+      })
+      .select();
 
     if (memberError) {
-      console.error('Error agregando miembro:', memberError);
+      console.error('Error agregando miembro a subscription_members:', memberError);
       return false;
     }
+    
+    console.log('Usuario agregado a subscription_members:', memberData);
 
     // Actualizar estado de invitación a 'accepted'
     const { error: updateError } = await supabase
@@ -189,6 +196,7 @@ export async function acceptInvitation(
       return false;
     }
 
+    console.log('Invitación actualizada a accepted');
     return true;
   } catch (error) {
     console.error('Error en acceptInvitation:', error);

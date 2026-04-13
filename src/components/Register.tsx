@@ -325,6 +325,16 @@ export function Register({ onRegister, onBackToLogin, language }: RegisterProps)
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Error Alert */}
+            {error && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+                <X className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
+              </div>
+            )}
+
             {/* Full Name Input */}
             <div>
               <label className="block text-xs font-semibold text-gray-900 mb-2 tracking-wider">

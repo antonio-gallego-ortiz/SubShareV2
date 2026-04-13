@@ -1,20 +1,50 @@
-import { CreditCard, Settings, Users } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { CreditCard, Settings, LogOut } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { getCurrentUserName, getUserInitials } from '../lib/userService';
 import type { View } from '../App';
 
 interface SidebarProps {
   currentView: View;
   onNavigate: (view: View) => void;
+  onLogout?: () => void;
 }
 
 const translations = {
   dashboard: 'Panel',
   payments: 'Pagos',
   settings: 'Configuración',
-  inviteFriend: 'Invitar Amigo',
-  helpCenter: 'Centro de Ayuda',
+  logout: 'Cerrar Sesión',
 };
 
-export function Sidebar({ currentView, onNavigate }: SidebarProps) {
+export function Sidebar({ currentView, onNavigate, onLogout }: SidebarProps) {
+  const [userName, setUserName] = useState('Usuario');
+  const [userInitials, setUserInitials] = useState('U');
+
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        const name = await getCurrentUserName();
+        setUserName(name);
+        const initials = await getUserInitials();
+        setUserInitials(initials);
+      } catch (error) {
+        console.error('Error cargando datos del usuario:', error);
+      }
+    };
+
+    loadUserData();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      onLogout?.();
+    } catch (error) {
+      console.error('Error cerrando sesión:', error);
+    }
+  };
+
   return (
     <div className="w-56 bg-white border-r border-gray-200 flex flex-col">
       <div className="p-4 border-b border-gray-200">
@@ -67,13 +97,21 @@ export function Sidebar({ currentView, onNavigate }: SidebarProps) {
       </nav>
 
       <div className="p-4 border-t border-gray-200">
-        <button className="w-full flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 mb-3">
-          <Users className="w-4 h-4" />
-          {translations.inviteFriend}
-        </button>
-        <button className="w-full flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-lg text-sm">
-          <div className="w-5 h-5 bg-gray-200 rounded-full flex items-center justify-center text-xs">?</div>
-          {translations.helpCenter}
+        <div className="flex items-center gap-3 px-3 py-3 bg-gray-50 rounded-lg mb-3">
+          <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+            {userInitials}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-gray-900 truncate">{userName}</p>
+            <p className="text-xs text-gray-500 truncate">Cuenta</p>
+          </div>
+        </div>
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium text-sm"
+        >
+          <LogOut className="w-4 h-4" />
+          {translations.logout}
         </button>
       </div>
     </div>

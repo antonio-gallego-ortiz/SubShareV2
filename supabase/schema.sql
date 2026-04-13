@@ -91,6 +91,10 @@ CREATE POLICY "Users can view their own profile"
   ON public.profiles FOR SELECT
   USING (auth.uid() = id);
 
+CREATE POLICY "Users can insert their own profile"
+  ON public.profiles FOR INSERT
+  WITH CHECK (auth.uid() = id);
+
 CREATE POLICY "Users can update their own profile"
   ON public.profiles FOR UPDATE
   USING (auth.uid() = id);
@@ -169,6 +173,10 @@ CREATE POLICY "Users can view their own notifications"
 CREATE POLICY "Users can update their own notifications"
   ON public.notifications FOR UPDATE
   USING (user_id = auth.uid());
+
+CREATE POLICY "Authenticated users can create notifications"
+  ON public.notifications FOR INSERT
+  WITH CHECK (auth.role() = 'authenticated');
 
 -- RLS Policies for invitations
 CREATE POLICY "Users can view invitations they sent or received"

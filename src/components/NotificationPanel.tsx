@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Bell, CheckCircle, Clock, AlertCircle, ThumbsUp, ThumbsDown, Loader } from 'lucide-react';
 import { getPendingInvitations, acceptInvitation, declineInvitation } from '../lib/invitationService';
 import { getCurrentUserEmail } from '../lib/userService';
+import { supabase } from '../lib/supabase';
 
 interface Invitation {
   id: string;
@@ -14,7 +15,11 @@ interface Invitation {
   inviter_name?: string;
 }
 
-export function NotificationPanel() {
+interface NotificationPanelProps {
+  onNavigate?: (view: 'dashboard' | 'payments' | 'settings' | 'add' | 'details' | 'members') => void;
+}
+
+export function NotificationPanel({ onNavigate }: NotificationPanelProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -52,8 +57,62 @@ export function NotificationPanel() {
   const handleAcceptInvitation = async (invitationId: string, userId?: string) => {
     setAccepting(invitationId);
     try {
-      await acceptInvitation(invitationId, userId || '');
-      setInvitations(invitations.filter(inv => inv.id !== invitationId));
+      console.log('NotificationPanel: Iniciando aceptación de invitación...');
+      const currentUser = await getCurrentUserEmail();
+      console.log('Email del usuario actual:', currentUser);
+      
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', currentUser)
+        .single();
+
+      console.log('Perfil obtenido:', profile);
+      
+      if (profile) {
+        console.log('Llamando a acceptInvitation con userId:', profile.id);
+        const success = await acceptInvitation(invitationId, profile.id);
+        
+        if (success) {
+          console.log('Invitación aceptada exitosamente');
+          // Eliminar la invitación de la lista local
+          setInvitations(invitations.filter(inv => inv.id !== invitationId));
+          
+          // Cerrar el panel de notificaciones
+          setIsOpen(false);
+          
+          // Navegar al dashboard para ver la nueva suscripción
+          if (onNavigate) {
+            setTimeout(() => {
+              console.log('Navegando al dashboard...');
+              onNavigate('dashboard');
+              
+              // Refrescar el dashboard después de navegar con un delay mayor
+              setTimeout(() => {
+                if ((window as any).refreshDashboard) {
+                  console.log('Ejecutando refreshDashboard después de navegación');
+                  (window as any).refreshDashboard();
+                } else {
+                  console.warn('refreshDashboard no está disponible en window');
+                }
+              }, 1000);
+            }, 300);
+          } else {
+            console.warn('onNavigate prop no disponible');
+            // Si no hay onNavigate disponible, intentar refrescar donde sea
+            setTimeout(() => {
+              if ((window as any).refreshDashboard) {
+                console.log('Ejecutando refreshDashboard sin navegación');
+                (window as any).refreshDashboard();
+              }
+            }, 1000);
+          }
+        } else {
+          console.error('Error: acceptInvitation retornó false');
+        }
+      } else {
+        console.error('No se pudo obtener el perfil del usuario');
+      }
     } catch (error) {
       console.error('Error aceptando invitación:', error);
     } finally {

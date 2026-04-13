@@ -154,26 +154,27 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-50">
       {currentView === 'dashboard' && (
-        <Dashboard onNavigate={handleViewChange} language={language} />
+        <Dashboard onNavigate={handleViewChange} language={language} onLogout={handleLogout} />
       )}
       {currentView === 'details' && selectedSubscription && (
         <SubscriptionDetails 
           subscription={selectedSubscription} 
           onNavigate={handleViewChange}
           language={language}
+          onLogout={handleLogout}
         />
       )}
       {currentView === 'add' && (
-        <AddSubscription onNavigate={handleViewChange} language={language} />
+        <AddSubscription onNavigate={handleViewChange} language={language} onLogout={handleLogout} />
       )}
       {currentView === 'members' && (
-        <Members onNavigate={handleViewChange} language={language} />
+        <Members onNavigate={handleViewChange} language={language} onLogout={handleLogout} />
       )}
       {currentView === 'payments' && (
-        <Payments onNavigate={handleViewChange} language={language} />
+        <Payments onNavigate={handleViewChange} language={language} onLogout={handleLogout} />
       )}
       {currentView === 'settings' && (
-        <Settings onNavigate={handleViewChange} language={language} />
+        <Settings onNavigate={handleViewChange} language={language} onLogout={handleLogout} />
       )}
     </div>
   );

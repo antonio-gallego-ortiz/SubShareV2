@@ -10,6 +10,7 @@ import { getCurrentUserProfile, getCurrentUserEmail, getCurrentUserName } from '
 interface AddSubscriptionProps {
   onNavigate: (view: View) => void;
   language: 'en' | 'es';
+  onLogout?: () => void;
 }
 
 interface InvitedMember {
@@ -29,19 +30,58 @@ const services = [
   { id: 'custom', name: 'Custom', logo: '+', color: 'bg-gray-50 border-gray-200' },
 ];
 
-export function AddSubscription({ onNavigate, language }: AddSubscriptionProps) {
+export function AddSubscription({ onNavigate, language, onLogout }: AddSubscriptionProps) {
   const [selectedService, setSelectedService] = useState('netflix');
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const [price, setPrice] = useState('15.99');
   const [nextPaymentDate, setNextPaymentDate] = useState('');
   const [customName, setCustomName] = useState('');
   const [emailInput, setEmailInput] = useState('');
-  const [members, setMembers] = useState<InvitedMember[]>([
-    { id: '1', name: 'John Doe (You)', email: 'john@example.com', initials: 'JD', isOwner: true, validationStatus: 'valid' },
-  ]);
+  const [members, setMembers] = useState<InvitedMember[]>([]);
   const [isValidating, setIsValidating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [validationError, setValidationError] = useState('');
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
+  const [userName, setUserName] = useState('Usuario');
+  const [userInitials, setUserInitials] = useState('U');
+
+  // Cargar datos del usuario actual
+  useEffect(() => {
+    const loadUserData = async () => {
+      setIsLoadingUser(true);
+      try {
+        const userEmail = await getCurrentUserEmail();
+        const userName = await getCurrentUserName();
+        const userProfile = await getCurrentUserProfile();
+        
+        setUserName(userName);
+        
+        const userInitials = userName.substring(0, 2).toUpperCase();
+        setUserInitials(userInitials);
+        
+        if (userEmail && userName && userProfile) {
+          const ownerMember: InvitedMember = {
+            id: userProfile.id,
+            name: `${userName} (You)`,
+            email: userEmail,
+            initials: userInitials,
+            isOwner: true,
+            validationStatus: 'valid',
+          };
+          setMembers([ownerMember]);
+        }
+      } catch (error) {
+        console.error('Error cargando datos del usuario:', error);
+        setMembers([
+          { id: '1', name: 'You', email: '', initials: 'U', isOwner: true, validationStatus: 'valid' }
+        ]);
+      } finally {
+        setIsLoadingUser(false);
+      }
+    };
+
+    loadUserData();
+  }, []);
 
   const totalMembers = members.length;
   const costPerPerson = totalMembers > 0 ? parseFloat(price) / totalMembers : 0;
@@ -150,10 +190,16 @@ export function AddSubscription({ onNavigate, language }: AddSubscriptionProps) 
           );
         }
 
-        // Mostrar éxito y navegar
+        // Navegar inmediatamente al dashboard
+        onNavigate('dashboard');
+
+        // Refrescar el dashboard después de un timeout para asegurar que se carguen datos frescos
         setTimeout(() => {
-          onNavigate('dashboard');
-        }, 1500);
+          if ((window as any).refreshDashboard) {
+            console.log('AddSubscription: Ejecutando refreshDashboard');
+            (window as any).refreshDashboard();
+          }
+        }, 800);
       } else {
         setValidationError('Error al guardar la suscripción. Intenta de nuevo.');
       }
@@ -201,12 +247,12 @@ export function AddSubscription({ onNavigate, language }: AddSubscriptionProps) 
               
               
               <div className="flex items-center gap-3 pl-6 border-l border-gray-200">
-                <NotificationPanel />
+                <NotificationPanel onNavigate={onNavigate} />
                 <div 
                   onClick={() => onNavigate('settings')}
-                  className="w-9 h-9 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 font-medium cursor-pointer hover:bg-orange-200 transition-colors"
+                  className="w-9 h-9 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm cursor-pointer hover:bg-blue-700 transition-colors"
                 >
-                  U
+                  {userInitials}
                 </div>
               </div>
             </div>

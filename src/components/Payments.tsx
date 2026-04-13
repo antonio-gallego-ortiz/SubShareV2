@@ -1,12 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Bell, Download, Filter, CreditCard, CheckCircle, Clock, XCircle, Calendar, X, DollarSign } from 'lucide-react';
 import type { View } from '../App';
 import { NotificationPanel } from './NotificationPanel';
 import { Sidebar } from './Sidebar';
+import { getCurrentUserProfile, getCurrentUserName, getUserInitials } from '../lib/userService';
+import { getUserPayments } from '../lib/paymentService';
 
 interface PaymentsProps {
   onNavigate: (view: View) => void;
   language: 'en' | 'es';
+  onLogout?: () => void;
 }
 
 interface Transaction {
@@ -19,79 +22,6 @@ interface Transaction {
   paymentMethod: string;
   category: string;
 }
-
-const transactions: Transaction[] = [
-  {
-    id: '1',
-    date: '2023-10-15',
-    subscription: 'Netflix Premium',
-    member: 'Sarah Miller',
-    amount: 5.00,
-    status: 'completed',
-    paymentMethod: 'Visa ****4532',
-    category: 'Entertainment'
-  },
-  {
-    id: '2',
-    date: '2023-10-14',
-    subscription: 'Spotify Family',
-    member: 'Alex Martinez',
-    amount: 2.83,
-    status: 'completed',
-    paymentMethod: 'Auto-debit',
-    category: 'Music'
-  },
-  {
-    id: '3',
-    date: '2023-10-13',
-    subscription: 'YouTube Premium',
-    member: 'Charlie Davis',
-    amount: 4.60,
-    status: 'completed',
-    paymentMethod: 'Mastercard ****8821',
-    category: 'Entertainment'
-  },
-  {
-    id: '4',
-    date: '2023-10-12',
-    subscription: 'Netflix Premium',
-    member: 'Bob Jenkins',
-    amount: 5.00,
-    status: 'pending',
-    paymentMethod: 'Pending',
-    category: 'Entertainment'
-  },
-  {
-    id: '5',
-    date: '2023-10-10',
-    subscription: 'Spotify Family',
-    member: 'Emma Wilson',
-    amount: 2.83,
-    status: 'completed',
-    paymentMethod: 'Visa ****2109',
-    category: 'Music'
-  },
-  {
-    id: '6',
-    date: '2023-10-08',
-    subscription: 'Netflix Premium',
-    member: 'Charlie Davis',
-    amount: 5.00,
-    status: 'failed',
-    paymentMethod: 'Visa ****3421',
-    category: 'Entertainment'
-  },
-  {
-    id: '7',
-    date: '2023-10-05',
-    subscription: 'YouTube Premium',
-    member: 'Sarah Miller',
-    amount: 4.60,
-    status: 'completed',
-    paymentMethod: 'Visa ****4532',
-    category: 'Entertainment'
-  }
-];
 
 const translations = {
   en: {
@@ -170,7 +100,12 @@ const translations = {
   }
 };
 
-export function Payments({ onNavigate, language }: PaymentsProps) {
+export function Payments({ onNavigate, language, onLogout }: PaymentsProps) {
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [userName, setUserName] = useState('Usuario');
+  const [userInitials, setUserInitials] = useState('U');
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'completed' | 'pending' | 'failed'>('all');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -178,6 +113,36 @@ export function Payments({ onNavigate, language }: PaymentsProps) {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
   const t = translations[language];
+
+  useEffect(() => {
+    const loadPaymentsData = async () => {
+      setIsLoading(true);
+      try {
+        // Cargar perfil del usuario
+        const profile = await getCurrentUserProfile();
+        setUserProfile(profile);
+
+        // Cargar nombre
+        const name = await getCurrentUserName();
+        setUserName(name);
+
+        // Cargar iniciales
+        const initials = await getUserInitials();
+        setUserInitials(initials);
+
+        // Cargar pagos del usuario
+        const userPayments = await getUserPayments();
+        setTransactions(userPayments || []);
+      } catch (error) {
+        console.error('Error cargando datos de pagos:', error);
+        setTransactions([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadPaymentsData();
+  }, []);
 
   const handleOpenPaymentModal = (transaction: Transaction) => {
     setSelectedTransaction(transaction);
@@ -212,11 +177,11 @@ export function Payments({ onNavigate, language }: PaymentsProps) {
     .reduce((sum, t) => sum + t.amount, 0);
   
   const pendingCount = transactions.filter(t => t.status === 'pending').length;
-  const upcomingBills = 3;
+  const upcomingBills = transactions.filter(t => t.status === 'pending').length;
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      <Sidebar currentView="payments" onNavigate={onNavigate} />
+      <Sidebar currentView="payments" onNavigate={onNavigate} onLogout={onLogout} />
       <div className="flex-1 overflow-auto">
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
@@ -244,17 +209,15 @@ export function Payments({ onNavigate, language }: PaymentsProps) {
                   className="pl-4 pr-4 py-2 border border-gray-200 rounded-lg bg-gray-50 w-64 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-              <NotificationPanel />
+              <NotificationPanel onNavigate={onNavigate} />
               <div 
                 onClick={() => onNavigate('settings')}
                 className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-lg px-2 py-1 transition-colors"
               >
-                <img
-                  src="https://api.dicebear.com/7.x/avataaars/svg?seed=Alex"
-                  alt="Alex M."
-                  className="w-8 h-8 rounded-full"
-                />
-                <span className="text-sm font-medium text-gray-700">Alex M.</span>
+                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                  {userInitials}
+                </div>
+                <span className="text-sm font-medium text-gray-700">{userName}</span>
               </div>
             </div>
           </div>

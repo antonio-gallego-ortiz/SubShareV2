@@ -8,6 +8,7 @@ import { getCurrentUserProfile, getCurrentUserName, getUserInitials, updateUserP
 interface SettingsProps {
   onNavigate: (view: View) => void;
   language: 'en' | 'es';
+  onLogout?: () => void;
 }
 
 const translations = {
@@ -137,7 +138,7 @@ const translations = {
   }
 };
 
-export function Settings({ onNavigate, language }: SettingsProps) {
+export function Settings({ onNavigate, language, onLogout }: SettingsProps) {
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'payment' | 'notifications' | 'dangerZone'>('profile');
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
@@ -233,7 +234,7 @@ export function Settings({ onNavigate, language }: SettingsProps) {
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      <Sidebar currentView="settings" onNavigate={onNavigate} />
+      <Sidebar currentView="settings" onNavigate={onNavigate} onLogout={onLogout} />
       <div className="flex-1 overflow-auto">
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
@@ -260,17 +261,15 @@ export function Settings({ onNavigate, language }: SettingsProps) {
                 />
               </div>
               
-              <NotificationPanel />
+              <NotificationPanel onNavigate={onNavigate} />
               <div 
                 onClick={() => onNavigate('settings')}
                 className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-lg px-2 py-1 transition-colors"
               >
-                <img
-                  src={profilePhoto}
-                  alt="Alex M."
-                  className="w-8 h-8 rounded-full"
-                />
-                <span className="text-sm font-medium text-gray-700">Alex M.</span>
+                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                  {userInitials}
+                </div>
+                <span className="text-sm font-medium text-gray-700">{fullName}</span>
               </div>
             </div>
           </div>

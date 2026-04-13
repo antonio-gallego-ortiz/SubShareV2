@@ -225,6 +225,11 @@ export async function signUpWithEmail(
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          full_name: fullName,
+        },
+      },
     });
 
     if (error) {
@@ -242,19 +247,10 @@ export async function signUpWithEmail(
       };
     }
 
-    // Crear perfil del usuario
-    const { error: profileError } = await supabase.from('profiles').insert({
-      id: data.user.id,
-      email: email,
-      full_name: fullName,
-    });
-
-    if (profileError) {
-      console.error('Error creando perfil:', profileError);
-      return {
-        success: false,
-        error: 'Error al crear el perfil del usuario',
-      };
+    // Hacer login automático después del registro
+    const loginResult = await signInWithEmail(email, password);
+    if (!loginResult.success) {
+      console.warn('Registro exitoso pero login automático falló. El usuario deberá iniciar sesión manualmente.');
     }
 
     return {
