@@ -9,6 +9,8 @@ export interface SubscriptionInput {
   billingCycle: 'month' | 'year';
   nextRenewal: Date;
   memberEmails: string[];
+  subscriptionEmail?: string;
+  subscriptionPassword?: string;
 }
 
 export interface SubscriptionMember {
@@ -37,24 +39,92 @@ export async function createSubscriptionWithMembers(
       return null;
     }
 
+    // Preparar datos base para la suscripción
+    const subscriptionData: any = {
+      name: data.name,
+      logo: data.logo,
+      price: data.price,
+      billing_cycle: data.billingCycle,
+      next_renewal: data.nextRenewal.toISOString().split('T')[0],
+      owner_id: ownerId,
+      total_members: data.memberEmails.length + 1, // +1 por el propietario
+      is_active: true,
+    };
+
+    // Agregar campos de credenciales solo si se proporcionan
+    if (data.subscriptionEmail) {
+      subscriptionData.subscription_email = data.subscriptionEmail;
+    }
+    if (data.subscriptionPassword) {
+      subscriptionData.subscription_password = data.subscriptionPassword;
+    }
+
     // Crear la suscripción
     const { data: subscription, error: subError } = await supabase
       .from('subscriptions')
-      .insert({
-        name: data.name,
-        logo: data.logo,
-        price: data.price,
-        billing_cycle: data.billingCycle,
-        next_renewal: data.nextRenewal.toISOString().split('T')[0],
-        owner_id: ownerId,
-        total_members: data.memberEmails.length + 1, // +1 por el propietario
-        is_active: true,
-      })
+      .insert(subscriptionData)
       .select('id')
       .single();
 
     if (subError || !subscription) {
       console.error('Error creando suscripción:', subError);
+      
+      // Si hay error y tenemos campos de credenciales, reintentar sin ellos
+      if (subError && (data.subscriptionEmail || data.subscriptionPassword)) {
+        console.log('Reintentando sin campos de credenciales...');
+        const basicData = {
+          name: data.name,
+          logo: data.logo,
+          price: data.price,
+          billing_cycle: data.billingCycle,
+          next_renewal: data.nextRenewal.toISOString().split('T')[0],
+          owner_id: ownerId,
+          total_members: data.memberEmails.length + 1,
+          is_active: true,
+        };
+
+        const { data: subscription2, error: subError2 } = await supabase
+          .from('subscriptions')
+          .insert(basicData)
+          .select('id')
+          .single();
+
+        if (subError2 || !subscription2) {
+          console.error('Error en reintento:', subError2);
+          return null;
+        }
+
+        // Continuar con subscription2
+        const subscriptionId = subscription2.id;
+        const costPerPerson = data.price / (data.memberEmails.length + 1);
+
+        // Agregar propietario como miembro
+        const { error: ownerMemberError } = await supabase
+          .from('subscription_members')
+          .insert({
+            subscription_id: subscriptionId,
+            user_id: ownerId,
+            amount: costPerPerson,
+            is_owner: true,
+          });
+
+        if (ownerMemberError) {
+          console.error('Error agregando propietario como miembro:', ownerMemberError);
+          await supabase.from('subscriptions').delete().eq('id', subscriptionId);
+          return null;
+        }
+
+        const validationResults = await validateAndAddMembers(
+          subscriptionId,
+          data.memberEmails,
+          costPerPerson,
+          ownerId
+        );
+
+        console.log('Resultados de validación:', validationResults);
+        return subscriptionId;
+      }
+
       return null;
     }
 
@@ -221,7 +291,7 @@ export async function getUserSubscriptions(userId?: string) {
  */
 export async function getSubscriptionMembers(
   subscriptionId: string
-): Promise<SubscriptionMember[]> {
+): Promise<any[]> {
   try {
     const { data, error } = await supabase
       .from('subscription_members')
@@ -244,9 +314,10 @@ export async function getSubscriptionMembers(
       data?.map((item: any) => ({
         id: item.profiles.id,
         email: item.profiles.email,
-        full_name: item.profiles.full_name,
-        avatar_url: item.profiles.avatar_url,
+        name: item.profiles.full_name,
+        avatar: item.profiles.avatar_url,
         amount: item.amount,
+        status: 'paid' as const,
         isOwner: item.is_owner,
       })) || []
     );

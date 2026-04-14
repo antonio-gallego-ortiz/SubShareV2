@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
   payment_method TEXT,
   total_members INTEGER DEFAULT 1,
   is_active BOOLEAN DEFAULT true,
+  subscription_email TEXT,
+  subscription_password TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
 );

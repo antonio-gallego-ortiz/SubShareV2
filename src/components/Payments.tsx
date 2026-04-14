@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Search, Bell, Download, Filter, CreditCard, CheckCircle, Clock, XCircle, Calendar, X, DollarSign } from 'lucide-react';
+import { Search, Bell, Download, Filter, CreditCard, CheckCircle, Clock, XCircle, Calendar, X, DollarSign, AlertCircle } from 'lucide-react';
 import type { View } from '../App';
 import { NotificationPanel } from './NotificationPanel';
 import { Sidebar } from './Sidebar';
 import { getCurrentUserProfile, getCurrentUserName, getUserInitials } from '../lib/userService';
-import { getUserPayments } from '../lib/paymentService';
+import { getUserPayments, getPendingPayments } from '../lib/paymentService';
+import { getUserSubscriptions } from '../lib/subscriptionService';
 
 interface PaymentsProps {
   onNavigate: (view: View) => void;
@@ -105,6 +106,8 @@ export function Payments({ onNavigate, language, onLogout }: PaymentsProps) {
   const [userName, setUserName] = useState('Usuario');
   const [userInitials, setUserInitials] = useState('U');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [subscriptions, setSubscriptions] = useState<any[]>([]);
+  const [pendingPayments, setPendingPayments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'completed' | 'pending' | 'failed'>('all');
@@ -130,12 +133,25 @@ export function Payments({ onNavigate, language, onLogout }: PaymentsProps) {
         const initials = await getUserInitials();
         setUserInitials(initials);
 
+        // Cargar suscripciones activas del usuario
+        const userSubs = await getUserSubscriptions();
+        const activeSubsList = userSubs.filter(
+          (s: any) => s.subscription?.is_active || s.subscription?.isActive
+        );
+        setSubscriptions(activeSubsList);
+
         // Cargar pagos del usuario
         const userPayments = await getUserPayments();
         setTransactions(userPayments || []);
+
+        // Cargar pagos pendientes
+        const pendingPaymentsList = await getPendingPayments();
+        setPendingPayments(pendingPaymentsList || []);
       } catch (error) {
         console.error('Error cargando datos de pagos:', error);
         setTransactions([]);
+        setSubscriptions([]);
+        setPendingPayments([]);
       } finally {
         setIsLoading(false);
       }
@@ -176,8 +192,12 @@ export function Payments({ onNavigate, language, onLogout }: PaymentsProps) {
     .filter(t => t.status === 'completed')
     .reduce((sum, t) => sum + t.amount, 0);
   
-  const pendingCount = transactions.filter(t => t.status === 'pending').length;
-  const upcomingBills = transactions.filter(t => t.status === 'pending').length;
+  const pendingCount = pendingPayments.length;
+  const pendingAmount = pendingPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+  const upcomingBills = subscriptions.length;
+  const activeSubscriptionsCount = subscriptions.filter(
+    (s: any) => s.subscription?.is_active || s.subscription?.isActive
+  ).length;
 
   return (
     <div className="flex min-h-screen bg-gray-50">

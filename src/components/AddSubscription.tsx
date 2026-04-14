@@ -36,6 +36,9 @@ export function AddSubscription({ onNavigate, language, onLogout }: AddSubscript
   const [price, setPrice] = useState('15.99');
   const [nextPaymentDate, setNextPaymentDate] = useState('');
   const [customName, setCustomName] = useState('');
+  const [subscriptionEmail, setSubscriptionEmail] = useState('');
+  const [subscriptionPassword, setSubscriptionPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [emailInput, setEmailInput] = useState('');
   const [members, setMembers] = useState<InvitedMember[]>([]);
   const [isValidating, setIsValidating] = useState(false);
@@ -150,6 +153,53 @@ export function AddSubscription({ onNavigate, language, onLogout }: AddSubscript
       return;
     }
 
+    // Validar fecha de renovación
+    let renewalDate = new Date();
+    if (nextPaymentDate && nextPaymentDate.trim()) {
+      try {
+        // Intentar parsear la fecha en diferentes formatos
+        let parsedDate;
+        
+        // Formato: dd/mm/yyyy o dd-mm-yyyy
+        if (nextPaymentDate.includes('/')) {
+          const [day, month, year] = nextPaymentDate.split('/');
+          parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+        } else if (nextPaymentDate.includes('-')) {
+          const [day, month, year] = nextPaymentDate.split('-');
+          parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+        } else {
+          // Intentar parseo directo
+          parsedDate = new Date(nextPaymentDate);
+        }
+
+        // Validar que la fecha sea válida
+        if (isNaN(parsedDate.getTime())) {
+          setValidationError('Formato de fecha inválido. Usa dd/mm/yyyy o dd-mm-yyyy');
+          return;
+        }
+
+        // Validar que la fecha sea en el futuro
+        if (parsedDate < new Date()) {
+          setValidationError('La fecha de renovación debe ser en el futuro');
+          return;
+        }
+
+        renewalDate = parsedDate;
+      } catch (error) {
+        setValidationError('Fecha de renovación inválida');
+        return;
+      }
+    } else {
+      // Si no se proporciona fecha, usar la de hoy más el período
+      const today = new Date();
+      if (billingCycle === 'monthly') {
+        today.setMonth(today.getMonth() + 1);
+      } else {
+        today.setFullYear(today.getFullYear() + 1);
+      }
+      renewalDate = today;
+    }
+
     setIsSaving(true);
     try {
       // Obtener el usuario actual desde Supabase
@@ -171,8 +221,10 @@ export function AddSubscription({ onNavigate, language, onLogout }: AddSubscript
           logo: selectedService,
           price: parseFloat(price),
           billingCycle: billingCycle === 'monthly' ? 'month' : 'year',
-          nextRenewal: new Date(nextPaymentDate),
+          nextRenewal: renewalDate,
           memberEmails: members.filter(m => !m.isOwner).map(m => m.email),
+          subscriptionEmail: subscriptionEmail,
+          subscriptionPassword: subscriptionPassword,
         },
         currentUser.id
       );
@@ -353,6 +405,55 @@ export function AddSubscription({ onNavigate, language, onLogout }: AddSubscript
                     placeholder="mm/dd/yyyy"
                     className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                </div>
+              </div>
+
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <h2 className="font-semibold text-gray-900 mb-4">Datos de Acceso a la Suscripción</h2>
+                <p className="text-sm text-gray-600 mb-4">Proporciona los datos de acceso de la suscripción para que otros miembros puedan usarla</p>
+                
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Email de la Suscripción
+                    </label>
+                    <input
+                      type="email"
+                      value={subscriptionEmail}
+                      onChange={(e) => setSubscriptionEmail(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="example@service.com"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Contraseña de la Suscripción
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={subscriptionPassword}
+                        onChange={(e) => setSubscriptionPassword(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="••••••••"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      >
+                        {showPassword ? 'Ocultar' : 'Ver'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3">
+                  <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-blue-700">
+                    Estos datos se mostrarán de forma segura a los miembros de la suscripción en la sección de detalles.
+                  </p>
                 </div>
               </div>
             </div>
