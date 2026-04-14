@@ -107,12 +107,14 @@ export function Payments({ onNavigate, language, onLogout }: PaymentsProps) {
   const [userInitials, setUserInitials] = useState('U');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
+  const [subscriptionPayments, setSubscriptionPayments] = useState<{ [key: string]: Payment }>({});
   const [pendingPayments, setPendingPayments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'completed' | 'pending' | 'failed'>('all');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [selectedSubscription, setSelectedSubscription] = useState<any>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
   const t = translations[language];
@@ -147,6 +149,27 @@ export function Payments({ onNavigate, language, onLogout }: PaymentsProps) {
         // Cargar pagos pendientes
         const pendingPaymentsList = await getPendingPayments();
         setPendingPayments(pendingPaymentsList || []);
+
+        // Crear un pago pendiente por cada suscripción activa
+        const subPayments: { [key: string]: Payment } = {};
+        activeSubsList.forEach((sub: any) => {
+          const subId = sub.subscription_id;
+          const subData = sub.subscription;
+          // Crear un pago pendiente para esta suscripción
+          subPayments[subId] = {
+            id: `sub-${subId}`,
+            date: new Date().toISOString(),
+            subscription: subData?.name || 'Unknown',
+            subscriptionId: subId,
+            member: userName,
+            amount: subData?.price || 0,
+            status: 'pending',
+            paymentMethod: subData?.payment_method || 'Auto-debit',
+            category: 'Subscription',
+            dueDate: subData?.next_renewal || new Date().toISOString()
+          };
+        });
+        setSubscriptionPayments(subPayments);
       } catch (error) {
         console.error('Error cargando datos de pagos:', error);
         setTransactions([]);
@@ -158,26 +181,112 @@ export function Payments({ onNavigate, language, onLogout }: PaymentsProps) {
     };
 
     loadPaymentsData();
-  }, []);
+  }, [userName]);
 
-  const handleOpenPaymentModal = (transaction: Transaction) => {
-    setSelectedTransaction(transaction);
+  const handleOpenPaymentModal = (payment: Transaction | Payment | null, isSubscription: boolean = false) => {
+    if (isSubscription && payment) {
+      setSelectedSubscription(payment);
+      setSelectedTransaction(null);
+    } else if (payment) {
+      setSelectedTransaction(payment as Transaction);
+      setSelectedSubscription(null);
+    }
     setShowPaymentModal(true);
     setSelectedPaymentMethod('');
     setPaymentNotes('');
   };
 
-  const handleConfirmPayment = () => {
-    // Aquí iría la lógica para guardar el pago
-    console.log('Payment confirmed:', {
-      transaction: selectedTransaction,
-      paymentMethod: selectedPaymentMethod,
-      notes: paymentNotes
+  const handleConfirmPayment = async () => {
+    if (!selectedPaymentMethod) {
+      alert(language === 'es' ? 'Por favor selecciona un método de pago' : 'Please select a payment method');
+      return;
+    }
+
+    try {
+      if (selectedSubscription) {
+        // Pago de suscripción
+        const subId = selectedSubscription.subscriptionId;
+        const updatedPayments = { ...subscriptionPayments };
+        updatedPayments[subId] = {
+          ...selectedSubscription,
+          status: 'completed' as const,
+          paymentMethod: selectedPaymentMethod
+        };
+        setSubscriptionPayments(updatedPayments);
+
+        // Agregar a las transacciones completadas
+        const newTransaction = {
+          ...selectedSubscription,
+          id: `completed-${Date.now()}`,
+          status: 'completed' as const,
+          paymentMethod: selectedPaymentMethod,
+          date: new Date().toISOString()
+        };
+        setTransactions([...transactions, newTransaction]);
+
+        console.log('Subscription payment confirmed:', {
+          subscription: selectedSubscription,
+          paymentMethod: selectedPaymentMethod,
+          notes: paymentNotes
+        });
+      } else if (selectedTransaction) {
+        // Pago de transacción
+        const updatedTransactions = transactions.map(t => 
+          t.id === selectedTransaction.id 
+            ? { ...t, status: 'completed' as const, paymentMethod: selectedPaymentMethod }
+            : t
+        );
+        setTransactions(updatedTransactions);
+
+        console.log('Transaction payment confirmed:', {
+          transaction: selectedTransaction,
+          paymentMethod: selectedPaymentMethod,
+          notes: paymentNotes
+        });
+      }
+
+      setShowPaymentModal(false);
+      setSelectedTransaction(null);
+      setSelectedSubscription(null);
+      setSelectedPaymentMethod('');
+      setPaymentNotes('');
+    } catch (error) {
+      console.error('Error confirming payment:', error);
+      alert(language === 'es' ? 'Error al procesar el pago' : 'Error processing payment');
+    }
+  };
+
+  const handleExportData = () => {
+    const statusLabels = {
+      'completed': language === 'es' ? 'Completado' : 'Completed',
+      'pending': language === 'es' ? 'Pendiente' : 'Pending',
+      'failed': language === 'es' ? 'Fallido' : 'Failed'
+    };
+
+    const csvRows = filteredTransactions.map(t => {
+      const date = new Date(t.date).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US');
+      const status = statusLabels[t.status as keyof typeof statusLabels];
+      return [date, t.subscription, t.member, `€${t.amount.toFixed(2)}`, status, t.paymentMethod];
     });
-    setShowPaymentModal(false);
-    setSelectedTransaction(null);
-    setSelectedPaymentMethod('');
-    setPaymentNotes('');
+
+    const headers = language === 'es' 
+      ? ['Fecha', 'Suscripción', 'Miembro', 'Cantidad', 'Estado', 'Método de Pago']
+      : ['Date', 'Subscription', 'Member', 'Amount', 'Status', 'Payment Method'];
+    
+    const csvContent = [
+      headers,
+      ...csvRows
+    ].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `payments_${new Date().getTime()}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const filteredTransactions = transactions.filter(transaction => {
@@ -254,7 +363,7 @@ export function Payments({ onNavigate, language, onLogout }: PaymentsProps) {
             <h1 className="text-2xl font-semibold text-gray-900 mb-1">{t.title}</h1>
             <p className="text-gray-600">{t.subtitle}</p>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+          <button onClick={handleExportData} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
             <Download className="w-4 h-4" />
             {t.exportData}
           </button>
@@ -292,7 +401,7 @@ export function Payments({ onNavigate, language, onLogout }: PaymentsProps) {
               </div>
             </div>
             <div className="text-3xl font-semibold text-gray-900 mb-2">{upcomingBills}</div>
-            <div className="text-sm text-gray-600">Next: Oct 24, 2023</div>
+            <div className="text-sm text-gray-600">Active subscriptions</div>
           </div>
         </div>
 
@@ -405,7 +514,7 @@ export function Payments({ onNavigate, language, onLogout }: PaymentsProps) {
                     <td className="px-6 py-4">
                       {transaction.status === 'pending' && (
                         <button
-                          onClick={() => handleOpenPaymentModal(transaction)}
+                          onClick={() => handleOpenPaymentModal(transaction, false)}
                           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                         >
                           {t.payButton}
@@ -418,10 +527,99 @@ export function Payments({ onNavigate, language, onLogout }: PaymentsProps) {
             </table>
           </div>
         </div>
+
+        {/* Subscriptions Pending Payment Table */}
+        <div className="mt-8">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-1">{language === 'es' ? 'Suscripciones Activas' : 'Active Subscriptions'}</h2>
+              <p className="text-gray-600">{language === 'es' ? 'Pagos pendientes por suscripción' : 'Pending payments by subscription'}</p>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 uppercase">{language === 'es' ? 'Suscripción' : 'Subscription'}</th>
+                    <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 uppercase">{language === 'es' ? 'Precio Mensual' : 'Monthly Price'}</th>
+                    <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 uppercase">{language === 'es' ? 'Próximo Pago' : 'Next Payment'}</th>
+                    <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 uppercase">{language === 'es' ? 'Estado' : 'Status'}</th>
+                    <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 uppercase">{language === 'es' ? 'Método de Pago' : 'Payment Method'}</th>
+                    <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 uppercase">{t.actions}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {subscriptions.map((sub) => {
+                    const subId = sub.subscription_id;
+                    const payment = subscriptionPayments[subId];
+                    const status = payment?.status || 'pending';
+
+                    return (
+                      <tr key={subId} className="hover:bg-gray-50">
+                        <td className="px-6 py-4">
+                          <div className="font-medium text-gray-900">{sub.subscription?.name || 'Unknown'}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="font-semibold text-gray-900">€{(sub.subscription?.price || 0).toFixed(2)}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-gray-900">
+                            {sub.subscription?.next_renewal 
+                              ? new Date(sub.subscription.next_renewal).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric'
+                                })
+                              : language === 'es' ? 'No definido' : 'Not set'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {status === 'completed' && (
+                            <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-700 text-sm font-medium rounded-full">
+                              <CheckCircle className="w-3 h-3" />
+                              {t.completed}
+                            </span>
+                          )}
+                          {status === 'pending' && (
+                            <span className="inline-flex items-center gap-1 px-3 py-1 bg-yellow-100 text-yellow-700 text-sm font-medium rounded-full">
+                              <Clock className="w-3 h-3" />
+                              {t.pending}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2 text-gray-600">
+                            <CreditCard className="w-4 h-4" />
+                            <span className="text-sm">{sub.subscription?.payment_method || 'Auto-debit'}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {status === 'pending' && (
+                            <button
+                              onClick={() => handleOpenPaymentModal(payment, true)}
+                              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                            >
+                              {t.payButton}
+                            </button>
+                          )}
+                          {status === 'completed' && (
+                            <span className="text-sm text-green-600">{language === 'es' ? 'Pagado' : 'Paid'}</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Payment Modal */}
-      {showPaymentModal && selectedTransaction && (
+      {showPaymentModal && (selectedTransaction || selectedSubscription) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
             {/* Modal Header */}
@@ -448,11 +646,15 @@ export function Payments({ onNavigate, language, onLogout }: PaymentsProps) {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">{t.subscription}:</span>
-                    <span className="text-sm font-medium text-gray-900">{selectedTransaction.subscription}</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {selectedSubscription?.subscription || selectedTransaction?.subscription || 'Unknown'}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">{t.amount}:</span>
-                    <span className="text-lg font-semibold text-blue-600">€{selectedTransaction.amount.toFixed(2)}</span>
+                    <span className="text-lg font-semibold text-blue-600">
+                      €{((selectedSubscription?.amount || selectedTransaction?.amount || 0).toFixed(2))}
+                    </span>
                   </div>
                 </div>
               </div>

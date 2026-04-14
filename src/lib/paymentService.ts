@@ -61,11 +61,11 @@ export async function getUserPayments(): Promise<Payment[]> {
         status,
         payment_date,
         due_date,
-        payment_method,
         subscription_id,
         subscription:subscriptions (
           id,
-          name
+          name,
+          payment_method
         ),
         member:subscription_members (
           user:profiles (
@@ -82,18 +82,28 @@ export async function getUserPayments(): Promise<Payment[]> {
     }
 
     // Mapear los datos al formato esperado
-    return (data || []).map((payment: any) => ({
-      id: payment.id,
-      date: payment.payment_date || new Date().toISOString(),
-      subscription: payment.subscription?.name || 'Unknown',
-      subscriptionId: payment.subscription_id,
-      member: payment.member?.user?.full_name || 'Unknown',
-      amount: payment.amount,
-      status: payment.status as 'completed' | 'pending' | 'failed',
-      paymentMethod: payment.payment_method || 'Auto-debit',
-      category: 'Subscription',
-      dueDate: payment.due_date
-    }));
+    return (data || []).map((payment: any) => {
+      // Mapear los estados de pago
+      const statusMap: { [key: string]: 'completed' | 'pending' | 'failed' } = {
+        'paid': 'completed',
+        'pending': 'pending',
+        'auto-paid': 'completed',
+        'failed': 'failed'
+      };
+
+      return {
+        id: payment.id,
+        date: payment.payment_date || new Date().toISOString(),
+        subscription: payment.subscription?.name || 'Unknown',
+        subscriptionId: payment.subscription_id,
+        member: payment.member?.user?.full_name || 'Unknown',
+        amount: payment.amount,
+        status: statusMap[payment.status] || 'pending' as 'completed' | 'pending' | 'failed',
+        paymentMethod: payment.subscription?.payment_method || 'Auto-debit',
+        category: 'Subscription',
+        dueDate: payment.due_date
+      };
+    });
   } catch (error) {
     console.error('Error en getUserPayments:', error);
     return [];
@@ -131,13 +141,20 @@ export async function getSubscriptionPayments(
         subscription_id,
         subscription:subscriptions (
           id,
-          name
+          name,
+          payment_method
         )
       `)
       .eq('subscription_id', subscriptionId);
 
     if (status) {
-      query = query.eq('status', status);
+      // Mapear los estados esperados
+      const statusMap: { [key: string]: string[] } = {
+        'completed': ['paid', 'auto-paid'],
+        'pending': ['pending'],
+        'failed': ['failed']
+      };
+      query = query.in('status', statusMap[status] || [status]);
     }
 
     const { data, error } = await query.order('created_at', { ascending: false });
@@ -146,6 +163,13 @@ export async function getSubscriptionPayments(
       console.error('Error obteniendo pagos de suscripción:', error);
       return [];
     }
+
+    const statusMap: { [key: string]: 'completed' | 'pending' | 'failed' } = {
+      'paid': 'completed',
+      'pending': 'pending',
+      'auto-paid': 'completed',
+      'failed': 'failed'
+    };
 
     return (data || []).map((payment: any) => ({
       id: payment.id,
@@ -156,8 +180,8 @@ export async function getSubscriptionPayments(
       subscriptionId: payment.subscription_id,
       member: 'Payment',
       amount: payment.amount,
-      status: payment.status as 'completed' | 'pending' | 'failed',
-      paymentMethod: 'Auto-debit',
+      status: statusMap[payment.status] || 'pending' as 'completed' | 'pending' | 'failed',
+      paymentMethod: payment.subscription?.payment_method || 'Auto-debit',
       category: 'Subscription',
       dueDate: payment.due_date
     }));

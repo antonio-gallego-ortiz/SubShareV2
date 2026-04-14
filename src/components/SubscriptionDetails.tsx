@@ -1,6 +1,7 @@
 import { ArrowLeft, Edit, UserPlus, Calendar, RefreshCw, Users as UsersIcon, MoreVertical, Send, Info, Eye, EyeOff, Trash2, Save, X as CloseIcon, ShieldCheck, Copy, Check } from 'lucide-react';
 import type { View, Subscription, Member } from '../App';
 import { NotificationPanel } from './NotificationPanel';
+import { Sidebar } from './Sidebar';
 import { useState, useEffect } from 'react';
 import { getSubscriptionMembers } from '../lib/subscriptionService';
 import { getCurrentUserProfile } from '../lib/userService';
@@ -127,7 +128,7 @@ interface SubscriptionDetailsProps {
   onLogout?: () => void;
 }
 
-export function SubscriptionDetails({ subscription, onNavigate, language }: SubscriptionDetailsProps) {
+export function SubscriptionDetails({ subscription, onNavigate, language, onLogout }: SubscriptionDetailsProps) {
   const [showDetails, setShowDetails] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [openMemberMenu, setOpenMemberMenu] = useState<string | null>(null);
@@ -285,70 +286,27 @@ export function SubscriptionDetails({ subscription, onNavigate, language }: Subs
   const costPerPerson = editMembers.length > 0 ? parseFloat(editPrice) / editMembers.length : 0;
   
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-8">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
-                  S
-                </div>
-                <span className="font-semibold text-gray-900">SubShare</span>
-              </div>
-
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Buscar"
-                  className="pl-4 pr-4 py-1.5 border border-gray-200 rounded-lg bg-gray-50 w-48 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-6">
-              <button 
-                onClick={() => onNavigate('dashboard')}
-                className="text-sm text-gray-600 hover:text-gray-900"
-              >
-                Panel
-              </button>
-              <button className="text-sm text-blue-600 font-medium border-b-2 border-blue-600 pb-4 -mb-4">
-                Suscripciones
-              </button>
-              
-              <div className="flex items-center gap-3 pl-6 border-l border-gray-200">
-                <NotificationPanel onNavigate={onNavigate} />
-                
-                <img
-                  onClick={() => onNavigate('settings')}
-                  src="https://api.dicebear.com/7.x/avataaars/svg?seed=User"
-                  alt="User"
-                  className="w-8 h-8 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar */}
+      <Sidebar currentView="details" onNavigate={onNavigate} onLogout={onLogout} />
 
       {/* Breadcrumb */}
-      <div className="max-w-6xl mx-auto px-6 py-4">
-        <div className="flex items-center gap-2 text-sm text-gray-600">
-          <button 
-            onClick={() => onNavigate('dashboard')}
-            className="hover:text-gray-900"
-          >
-            Suscripciones
-          </button>
-          <span>/</span>
-          <span className="text-gray-900">Detalles de {subscription?.name || 'Suscripción'}</span>
+      <div className="flex-1">
+        <div className="max-w-6xl mx-auto px-6 py-4">
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <button 
+              onClick={() => onNavigate('dashboard')}
+              className="hover:text-gray-900"
+            >
+              Suscripciones
+            </button>
+            <span>/</span>
+            <span className="text-gray-900">Detalles de {subscription?.name || 'Suscripción'}</span>
+          </div>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="max-w-6xl mx-auto px-6 pb-8">
+        {/* Main Content */}
+        <div className="max-w-6xl mx-auto px-6 pb-8">
         {!subscription ? (
           <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
             <p className="text-gray-500">Cargando suscripción...</p>
@@ -724,6 +682,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language }: Subs
         </div>
       </>
       )}
+      </div>
       </div>
 
       {/* Edit Mode Modal */}
