@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { validateEmailExists, getProfileByEmail } from './emailService';
 import { notifyNewSubscriptionInvitation } from './notificationService';
+import { getCurrentUser } from './userService';
 
 export interface SubscriptionInput {
   name: string;
@@ -242,42 +243,37 @@ export async function getUserSubscriptions(userId?: string) {
       userIdToUse = user.id;
     }
 
-    const { data, error } = await supabase
-      .from('subscription_members')
-      .select(
-        `
-        subscription:subscriptions(
-          id,
-          name,
-          logo,
-          price,
-          billing_cycle,
-          next_renewal,
-          owner_id,
-          is_active,
-          created_at,
-          updated_at,
-          total_members
-        ),
-        amount,
-        is_owner
-      `
-      )
-      .eq('user_id', userIdToUse);
+    const { data, error } = await supabase.rpc('get_user_subscriptions', {
+      user_id: userIdToUse,
+    });
 
     if (error) {
       console.error('Error obteniendo suscripciones del usuario:', error);
       return [];
     }
 
-    // Ordenar localmente por fecha de creación descendente
-    const sortedData = (data || []).sort((a: any, b: any) => {
-      const dateA = new Date(a.subscription?.created_at || 0).getTime();
-      const dateB = new Date(b.subscription?.created_at || 0).getTime();
-      return dateB - dateA;
-    });
+    // Mapear datos a formato esperado
+    const formattedData = (data || []).map((item: any) => ({
+      id: item.subscription_id,
+      name: item.name,
+      logo: item.logo,
+      price: item.price,
+      billingCycle: item.billing_cycle,
+      nextRenewal: item.next_renewal,
+      ownerId: item.owner_id,
+      isActive: item.is_active,
+      createdAt: item.created_at,
+      updatedAt: item.updated_at,
+      totalMembers: item.total_members,
+      payment_method: item.payment_method,
+      subscription_email: item.subscription_email,
+      subscription_password: item.subscription_password,
+      yourShare: item.amount,
+      isOwner: item.is_owner,
+      members: [],
+    }));
 
-    return sortedData;
+    return formattedData;
   } catch (error) {
     console.error('Error en getUserSubscriptions:', error);
     return [];
@@ -298,6 +294,7 @@ export async function getSubscriptionMembers(
       .select(
         `
         id,
+        user_id,
         amount,
         is_owner,
         profiles(id, email, full_name, avatar_url)
@@ -312,7 +309,8 @@ export async function getSubscriptionMembers(
 
     return (
       data?.map((item: any) => ({
-        id: item.profiles.id,
+        memberId: item.id,  // El ID de subscription_members
+        id: item.profiles.id,  // El user_id
         email: item.profiles.email,
         name: item.profiles.full_name,
         avatar: item.profiles.avatar_url,
@@ -338,20 +336,160 @@ export async function removeSubscriptionMember(
   userId: string
 ): Promise<boolean> {
   try {
-    const { error } = await supabase
-      .from('subscription_members')
-      .delete()
-      .eq('subscription_id', subscriptionId)
-      .eq('user_id', userId);
+    const { data, error } = await supabase.rpc('leave_subscription', {
+      sub_id: subscriptionId,
+    });
 
     if (error) {
       console.error('Error eliminando miembro:', error);
       return false;
     }
 
-    return true;
+    return data || false;
   } catch (error) {
     console.error('Error en removeSubscriptionMember:', error);
+    return false;
+  }
+}
+
+/**
+ * Verifica si el usuario actual es el dueño de la suscripción
+ * @param subscriptionId - ID de la suscripción
+ * @param userId - ID del usuario a verificar
+ * @returns true si es el dueño, false en caso contrario
+ */
+export async function isSubscriptionOwner(
+  subscriptionId: string,
+  userId: string
+): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .select('owner_id')
+      .eq('id', subscriptionId)
+      .single();
+
+    if (error || !data) {
+      console.error('Error obteniendo dueño de suscripción:', error);
+      return false;
+    }
+
+    return data.owner_id === userId;
+  } catch (error) {
+    console.error('Error en isSubscriptionOwner:', error);
+    return false;
+  }
+}
+
+/**
+ * Actualiza una suscripción existente
+ * @param subscriptionId - ID de la suscripción
+ * @param updates - Objeto con los campos a actualizar
+ * @returns true si se actualiza exitosamente, false en caso contrario
+ */
+export async function updateSubscription(
+  subscriptionId: string,
+  updates: {
+    name?: string;
+    price?: number;
+    billing_cycle?: 'month' | 'year';
+    next_renewal?: string;
+    subscription_email?: string;
+    subscription_password?: string;
+  }
+): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.rpc('update_user_subscription', {
+      sub_id: subscriptionId,
+      sub_name: updates.name || '',
+      sub_price: updates.price || 0,
+      sub_billing_cycle: updates.billing_cycle || 'month',
+      sub_next_renewal: updates.next_renewal || null,
+      sub_email: updates.subscription_email || null,
+      sub_password: updates.subscription_password || null,
+    });
+
+    if (error) {
+      console.error('Error actualizando suscripción:', error);
+      return false;
+    }
+
+    return data || false;
+  } catch (error) {
+    console.error('Error en updateSubscription:', error);
+    return false;
+  }
+}
+
+/**
+ * Permite a un miembro salirse de una suscripción (no puede ser el dueño)
+ * @param subscriptionId - ID de la suscripción
+ * @returns true si se retira exitosamente, false si hay error o es dueño
+ */
+export async function leaveSubscription(subscriptionId: string): Promise<boolean> {
+  try {
+    // Obtener usuario actual
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      console.error('No hay usuario autenticado');
+      return false;
+    }
+
+    console.log('Intentando salirse de suscripción:', subscriptionId, 'Usuario:', currentUser.id);
+
+    // Primero intentar eliminar la suscripción completa (si es dueño)
+    const { error: deleteSubError, count: deletedCount } = await supabase
+      .from('subscriptions')
+      .delete()
+      .eq('id', subscriptionId)
+      .eq('owner_id', currentUser.id);
+
+    // Si se eliminó la suscripción, retornar éxito
+    if (!deleteSubError && deletedCount && deletedCount > 0) {
+      console.log('Suscripción eliminada como dueño');
+      return true;
+    }
+
+    // Si no es dueño, intentar remover solo como miembro
+    console.log('Intentando remover como miembro');
+    const { error: memberError, count: memberDeletedCount } = await supabase
+      .from('subscription_members')
+      .delete()
+      .eq('subscription_id', subscriptionId)
+      .eq('user_id', currentUser.id);
+
+    if (!memberError && memberDeletedCount && memberDeletedCount > 0) {
+      console.log('Usuario eliminado como miembro');
+      return true;
+    }
+
+    console.error('No se pudo eliminar al usuario');
+    return false;
+  } catch (error) {
+    console.error('Error en leaveSubscription:', error);
+    return false;
+  }
+}
+
+/**
+ * Elimina una suscripción (solo si eres el dueño)
+ * @param subscriptionId - ID de la suscripción a eliminar
+ * @returns true si se elimina exitosamente, false si hay error
+ */
+export async function deleteSubscription(subscriptionId: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.rpc('delete_user_subscription', {
+      sub_id: subscriptionId,
+    });
+
+    if (error) {
+      console.error('Error eliminando suscripción:', error);
+      return false;
+    }
+
+    return data || false;
+  } catch (error) {
+    console.error('Error en deleteSubscription:', error);
     return false;
   }
 }

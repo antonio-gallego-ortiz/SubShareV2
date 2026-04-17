@@ -577,7 +577,7 @@ export function AddSubscription({ onNavigate, language, onLogout }: AddSubscript
                 <div className="flex items-start gap-2">
                   <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-blue-100">
-                    Members will receive an invitation email to join the split and set up their payment method.
+                    Los miembros recibirán un correo de invitación para unirse al grupo y configurar su método de pago.
                   </p>
                 </div>
               </div>

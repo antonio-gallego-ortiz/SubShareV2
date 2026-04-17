@@ -198,6 +198,96 @@ CREATE POLICY "Authenticated users can create invitations for their subscription
     )
   );
 
+-- Function to get user subscriptions with credentials, bypassing RLS
+CREATE OR REPLACE FUNCTION get_user_subscriptions(user_id UUID)
+RETURNS TABLE(
+  subscription_id UUID,
+  name TEXT,
+  logo TEXT,
+  price DECIMAL,
+  billing_cycle TEXT,
+  next_renewal DATE,
+  owner_id UUID,
+  is_active BOOLEAN,
+  created_at TIMESTAMP WITH TIME ZONE,
+  updated_at TIMESTAMP WITH TIME ZONE,
+  total_members INTEGER,
+  payment_method TEXT,
+  subscription_email TEXT,
+  subscription_password TEXT,
+  amount DECIMAL,
+  is_owner BOOLEAN
+) LANGUAGE SQL SECURITY DEFINER SET search_path = public AS $$
+  SELECT
+    s.id,
+    s.name,
+    s.logo,
+    s.price,
+    s.billing_cycle,
+    s.next_renewal,
+    s.owner_id,
+    s.is_active,
+    s.created_at,
+    s.updated_at,
+    s.total_members,
+    s.payment_method,
+    s.subscription_email,
+    s.subscription_password,
+    sm.amount,
+    sm.is_owner
+  FROM public.subscriptions s
+  INNER JOIN public.subscription_members sm ON s.id = sm.subscription_id
+  WHERE sm.user_id = user_id
+  ORDER BY s.created_at DESC;
+$$ STABLE;
+
+-- Function to leave a subscription (remove current user from members)
+CREATE OR REPLACE FUNCTION leave_subscription(sub_id UUID)
+RETURNS BOOLEAN LANGUAGE PLPGSQL SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  is_owner BOOLEAN;
+BEGIN
+  -- Verificar que el usuario actual NO es el dueño
+  SELECT owner_id = auth.uid()
+  INTO is_owner
+  FROM subscriptions
+  WHERE id = sub_id;
+
+  IF is_owner THEN
+    RAISE EXCEPTION 'El dueño no puede salirse de la suscripción';
+  END IF;
+
+  -- Eliminar al usuario de los miembros
+  DELETE FROM subscription_members
+  WHERE subscription_id = sub_id AND user_id = auth.uid();
+
+  RETURN TRUE;
+END;
+$$;
+
+-- Function to delete a subscription (only owner)
+CREATE OR REPLACE FUNCTION delete_user_subscription(sub_id UUID)
+RETURNS BOOLEAN LANGUAGE PLPGSQL SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  is_owner BOOLEAN;
+BEGIN
+  -- Verificar que el usuario actual es el dueño
+  SELECT owner_id = auth.uid()
+  INTO is_owner
+  FROM subscriptions
+  WHERE id = sub_id;
+
+  IF NOT is_owner THEN
+    RAISE EXCEPTION 'Solo el dueño puede eliminar la suscripción';
+  END IF;
+
+  -- Eliminar la suscripción (las referencias en cascade se eliminan automáticamente)
+  DELETE FROM subscriptions WHERE id = sub_id;
+
+  RETURN TRUE;
+END;
+$$;
+
 CREATE POLICY "Invitees can update invitation status"
   ON public.invitations FOR UPDATE
   USING (invitee_email = (SELECT email FROM public.profiles WHERE id = auth.uid()))

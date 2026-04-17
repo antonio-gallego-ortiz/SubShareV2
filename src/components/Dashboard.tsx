@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Bell, Search, Settings, CreditCard, Users, MoreVertical, ArrowRight, Plus } from 'lucide-react';
+import { Bell, Search, Settings, CreditCard, Users, MoreVertical, ArrowRight, Plus, Trash2, LogOut } from 'lucide-react';
 import type { View, Subscription } from '../App';
 import { NotificationPanel } from './NotificationPanel';
 import { Sidebar } from './Sidebar';
 import { getCurrentUserProfile, getCurrentUserName, getUserInitials } from '../lib/userService';
-import { getUserSubscriptions } from '../lib/subscriptionService';
+import { getUserSubscriptions, deleteSubscription, leaveSubscription } from '../lib/subscriptionService';
+import { getSubscriptionLogo, getSubscriptionColor } from '../lib/subscriptionHelper';
 
 interface DashboardProps {
   onNavigate: (view: View, subscription?: Subscription) => void;
@@ -42,6 +43,7 @@ export function Dashboard({ onNavigate, language, onLogout }: DashboardProps) {
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   const loadSubscriptions = async () => {
     try {
@@ -64,18 +66,24 @@ export function Dashboard({ onNavigate, language, onLogout }: DashboardProps) {
       // Cargar suscripciones
       const userSubs = await getUserSubscriptions();
       console.log('Suscripciones obtenidas de BD:', userSubs);
-      // Mapear datos de Supabase al formato de Subscription
-      const formattedSubs = userSubs.map((item: any) => ({
-        ...item.subscription,
-        isActive: item.subscription.is_active, // Convertir is_active a isActive
-        totalMembers: item.subscription.total_members, // Convertir total_members a totalMembers
-        billingCycle: item.subscription.billing_cycle, // Convertir billing_cycle a billingCycle
-        nextRenewal: item.subscription.next_renewal, // Convertir next_renewal a nextRenewal
-        ownerId: item.subscription.owner_id, // Convertir owner_id a ownerId
-        createdAt: item.subscription.created_at, // Convertir created_at a createdAt
-        updatedAt: item.subscription.updated_at, // Convertir updated_at a updatedAt
-        yourShare: item.amount,
-        isOwner: item.is_owner,
+      // Los datos ya vienen mapeados de la función RPC
+      const formattedSubs = userSubs.map((sub: any) => ({
+        id: sub.id,
+        name: sub.name,
+        logo: sub.logo,
+        price: sub.price,
+        isActive: sub.isActive,
+        totalMembers: sub.totalMembers,
+        billingCycle: sub.billingCycle,
+        nextRenewal: sub.nextRenewal,
+        ownerId: sub.ownerId,
+        createdAt: sub.createdAt,
+        updatedAt: sub.updatedAt,
+        payment_method: sub.payment_method,
+        subscription_email: sub.subscription_email,
+        subscription_password: sub.subscription_password,
+        yourShare: sub.yourShare,
+        isOwner: sub.isOwner,
         members: [],
       }));
       console.log('Suscripciones formateadas:', formattedSubs);
@@ -84,6 +92,50 @@ export function Dashboard({ onNavigate, language, onLogout }: DashboardProps) {
       console.error('Error cargando datos:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDeleteSubscription = async (subscriptionId: string, subscriptionName: string) => {
+    // Solicitar confirmación
+    if (!window.confirm(`¿Está seguro de que desea eliminar la suscripción "${subscriptionName}"? Esta acción no se puede deshacer.`)) {
+      return;
+    }
+
+    try {
+      const success = await deleteSubscription(subscriptionId);
+      if (success) {
+        alert('Suscripción eliminada exitosamente');
+        setOpenMenuId(null);
+        // Remover la suscripción de la lista
+        setSubscriptions(subscriptions.filter(sub => sub.id !== subscriptionId));
+      } else {
+        alert('Error al eliminar la suscripción. Solo el dueño puede eliminarla.');
+      }
+    } catch (error) {
+      console.error('Error deleteting subscription:', error);
+      alert('Error al eliminar la suscripción');
+    }
+  };
+
+  const handleLeaveSubscription = async (subscriptionId: string, subscriptionName: string) => {
+    // Solicitar confirmación
+    if (!window.confirm(`¿Está seguro de que desea salirse de la suscripción "${subscriptionName}"?`)) {
+      return;
+    }
+
+    try {
+      const success = await leaveSubscription(subscriptionId);
+      if (success) {
+        alert('Has salido de la suscripción exitosamente');
+        setOpenMenuId(null);
+        // Remover la suscripción de la lista
+        setSubscriptions(subscriptions.filter(sub => sub.id !== subscriptionId));
+      } else {
+        alert('Error al salirse de la suscripción.');
+      }
+    } catch (error) {
+      console.error('Error leaving subscription:', error);
+      alert('Error al salirse de la suscripción');
     }
   };
 
@@ -103,6 +155,18 @@ export function Dashboard({ onNavigate, language, onLogout }: DashboardProps) {
     };
   }, []);
 
+  // Cerrar menú cuando se hace click fuera
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setOpenMenuId(null);
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, []);
+
   // Filtrar solo suscripciones activas
   const activeSubscriptions = subscriptions.filter(sub => sub.isActive === true || sub.is_active === true);
   
@@ -112,10 +176,8 @@ export function Dashboard({ onNavigate, language, onLogout }: DashboardProps) {
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto">
-        <div className="border-b border-gray-200 bg-white px-8 py-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-xl font-semibold text-gray-900">{translations.overview}</h1>
-            <div className="flex items-center gap-4">
+        <div className="border-t border-gray-200 bg-white px-8 py-4">
+          <div className="flex items-center justify-end gap-4">
               <div className="relative">
                 <input
                   type="text"
@@ -128,21 +190,12 @@ export function Dashboard({ onNavigate, language, onLogout }: DashboardProps) {
                 onClick={() => onNavigate('settings')}
                 className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-lg px-2 py-1 transition-colors"
               >
-                {userProfile?.avatar_url ? (
-                  <img
-                    src={userProfile.avatar_url}
-                    alt={userName}
-                    className="w-8 h-8 rounded-full"
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium">
-                    {userInitials}
-                  </div>
-                )}
+                <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium">
+                  {userInitials}
+                </div>
                 <span className="text-sm font-medium text-gray-700">{userName}</span>
               </div>
             </div>
-          </div>
         </div>
 
         <div className="p-8">
@@ -189,16 +242,21 @@ export function Dashboard({ onNavigate, language, onLogout }: DashboardProps) {
                   <div 
                     key={sub.id} 
                     className="bg-white rounded-xl p-6 border border-gray-200 hover:shadow-xl hover:border-blue-200 transition-all duration-300 cursor-pointer transform hover:-translate-y-1"
-                    onClick={() => onNavigate('details', sub)}
                   >
                     <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3 flex-1">
+                      <div className="flex items-center gap-3 flex-1" onClick={() => onNavigate('details', sub)}>
                         <div 
-                          className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-md ${
-                            index === 0 ? 'bg-red-600' : index === 1 ? 'bg-green-600' : 'bg-purple-600'
-                          }`}
+                          className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md bg-white border border-gray-200 overflow-hidden`}
                         >
-                          {sub.logo}
+                          {getSubscriptionLogo(sub.name) ? (
+                            <img 
+                              src={getSubscriptionLogo(sub.name)} 
+                              alt={sub.name}
+                              className="w-full h-full object-contain p-1"
+                            />
+                          ) : (
+                            <span className="text-gray-900 font-bold text-lg">{sub.name.charAt(0).toUpperCase()}</span>
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="font-semibold text-gray-900 truncate">{sub.name}</div>
@@ -208,25 +266,22 @@ export function Dashboard({ onNavigate, language, onLogout }: DashboardProps) {
                           </div>
                         </div>
                       </div>
-                      {sub.isOwner && (
-                        <div className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full flex-shrink-0">
-                          Dueño
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2">
+                      </div>
                     </div>
 
-                    <div className="flex items-end justify-between mb-4">
+                    <div className="flex items-end justify-between mb-4" onClick={() => onNavigate('details', sub)}>
                       <div>
                         <div className="text-xs text-gray-500 mb-1 font-medium">{translations.yourShare}</div>
-                        <div className="text-2xl font-bold text-blue-600">${sub.yourShare?.toFixed(2) || '0.00'}</div>
+                        <div className="text-2xl font-bold text-blue-600">€{sub.yourShare?.toFixed(2) || '0.00'}</div>
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-medium text-gray-500">Total</div>
-                        <div className="text-xl font-bold text-gray-900">${sub.price}€</div>
+                        <div className="text-xl font-bold text-gray-900">€{sub.price}</div>
                       </div>
                     </div>
 
-                    <div className="pt-4 border-t border-gray-100">
+                    <div className="pt-4 border-t border-gray-100" onClick={() => onNavigate('details', sub)}>
                       <div className="flex items-center justify-between text-xs text-gray-600 mb-2">
                         <span className="font-medium">{translations.billingCycle}</span>
                         <span className="text-green-600 font-medium">Activo</span>

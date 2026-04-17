@@ -46,16 +46,9 @@ export function Sidebar({ currentView, onNavigate, onLogout }: SidebarProps) {
   };
 
   return (
-    <div className="w-56 bg-white border-r border-gray-200 flex flex-col">
-      <div className="p-4 border-b border-gray-200">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
-            S
-          </div>
-          <div>
-            <div className="font-semibold text-gray-900">SubShare</div>
-          </div>
-        </div>
+    <div className="w-56 bg-white flex flex-col">
+      <div className="-mt-4 pb-4 pr-4 pl-2 cursor-pointer hover:opacity-80 transition-opacity flex justify-center" onClick={() => onNavigate('dashboard')}>
+        <img src="/11.svg" alt="SubShare" className="h-36 object-contain" />
       </div>
 
       <nav className="flex-1 p-4">

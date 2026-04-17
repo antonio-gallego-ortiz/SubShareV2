@@ -1,11 +1,12 @@
-import { ArrowLeft, Edit, UserPlus, Calendar, RefreshCw, Users as UsersIcon, MoreVertical, Send, Info, Eye, EyeOff, Trash2, Save, X as CloseIcon, ShieldCheck, Copy, Check } from 'lucide-react';
+import { ArrowLeft, Edit, UserPlus, Calendar, RefreshCw, Users as UsersIcon, MoreVertical, Send, Info, Eye, EyeOff, Trash2, Save, X as CloseIcon, ShieldCheck, Copy, Check, CreditCard } from 'lucide-react';
 import type { View, Subscription, Member } from '../App';
 import { NotificationPanel } from './NotificationPanel';
 import { Sidebar } from './Sidebar';
 import { useState, useEffect } from 'react';
-import { getSubscriptionMembers } from '../lib/subscriptionService';
-import { getCurrentUserProfile } from '../lib/userService';
-import { getSubscriptionPayments } from '../lib/paymentService';
+import { getSubscriptionMembers, isSubscriptionOwner, updateSubscription } from '../lib/subscriptionService';
+import { getCurrentUserProfile, getCurrentUser } from '../lib/userService';
+import { getSubscriptionPayments, getSubscriptionPendingPayments, registerPayment } from '../lib/paymentService';
+import { getSubscriptionLogo, getSubscriptionColor } from '../lib/subscriptionHelper';
 
 // Función helper para obtener iniciales
 function getInitials(name?: string | null): string {
@@ -25,117 +26,14 @@ interface SubscriptionDetailsProps {
   onLogout?: () => void;
 }
 
-// Mock data para los miembros con más detalles
-const detailedMembers: Member[] = [
-  {
-    id: '1',
-    name: 'Alice (Owner)',
-    email: 'alice.smith@example.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alice',
-    amount: 5.00,
-    status: 'paid',
-    isOwner: true
-  },
-  {
-    id: '2',
-    name: 'Bob Jenkins',
-    email: 'bob.j@provider.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Bob',
-    amount: 5.00,
-    status: 'pending',
-    isOwner: false
-  },
-  {
-    id: '3',
-    name: 'Charlie Davis',
-    email: 'charlie.d@site.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Charlie',
-    amount: 5.00,
-    status: 'paid',
-    isOwner: false
-  },
-  {
-    id: '4',
-    name: 'Diana Martinez',
-    email: 'diana.m@email.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Diana',
-    amount: 4.99,
-    status: 'paid',
-    isOwner: false
-  },
-];
-
-// Mock data para el historial de renovaciones
-const renewalHistory = [
-  {
-    id: '1',
-    date: 'September 15, 2023',
-    period: 'Sep 15 - Oct 15, 2023',
-    totalAmount: 19.99,
-    status: 'completed',
-    payments: [
-      { memberId: '1', memberName: 'Alice', amount: 5.00, status: 'paid', paidDate: 'Sep 15, 2023' },
-      { memberId: '2', memberName: 'Bob', amount: 5.00, status: 'paid', paidDate: 'Sep 16, 2023' },
-      { memberId: '3', memberName: 'Charlie', amount: 5.00, status: 'paid', paidDate: 'Sep 15, 2023' },
-      { memberId: '4', memberName: 'Diana', amount: 4.99, status: 'paid', paidDate: 'Sep 15, 2023' },
-    ]
-  },
-  {
-    id: '2',
-    date: 'August 15, 2023',
-    period: 'Aug 15 - Sep 15, 2023',
-    totalAmount: 19.99,
-    status: 'completed',
-    payments: [
-      { memberId: '1', memberName: 'Alice', amount: 5.00, status: 'paid', paidDate: 'Aug 15, 2023' },
-      { memberId: '2', memberName: 'Bob', amount: 5.00, status: 'paid', paidDate: 'Aug 18, 2023' },
-      { memberId: '3', memberName: 'Charlie', amount: 5.00, status: 'paid', paidDate: 'Aug 15, 2023' },
-      { memberId: '4', memberName: 'Diana', amount: 4.99, status: 'paid', paidDate: 'Aug 16, 2023' },
-    ]
-  },
-  {
-    id: '3',
-    date: 'July 15, 2023',
-    period: 'Jul 15 - Aug 15, 2023',
-    totalAmount: 19.99,
-    status: 'completed',
-    payments: [
-      { memberId: '1', memberName: 'Alice', amount: 5.00, status: 'paid', paidDate: 'Jul 15, 2023' },
-      { memberId: '2', memberName: 'Bob', amount: 5.00, status: 'paid', paidDate: 'Jul 20, 2023' },
-      { memberId: '3', memberName: 'Charlie', amount: 5.00, status: 'paid', paidDate: 'Jul 16, 2023' },
-      { memberId: '4', memberName: 'Diana', amount: 4.99, status: 'paid', paidDate: 'Jul 15, 2023' },
-    ]
-  },
-  {
-    id: '4',
-    date: 'October 15, 2023',
-    period: 'Oct 15 - Nov 15, 2023',
-    totalAmount: 19.99,
-    status: 'pending',
-    payments: [
-      { memberId: '1', memberName: 'Alice', amount: 5.00, status: 'paid', paidDate: 'Oct 15, 2023' },
-      { memberId: '2', memberName: 'Bob', amount: 5.00, status: 'pending', paidDate: '' },
-      { memberId: '3', memberName: 'Charlie', amount: 5.00, status: 'paid', paidDate: 'Oct 15, 2023' },
-      { memberId: '4', memberName: 'Diana', amount: 4.99, status: 'paid', paidDate: 'Oct 16, 2023' },
-    ]
-  },
-];
-
-interface SubscriptionDetailsProps {
-  subscription: Subscription;
-  onNavigate: (view: View) => void;
-  language: 'en' | 'es';
-  onLogout?: () => void;
-}
-
 export function SubscriptionDetails({ subscription, onNavigate, language, onLogout }: SubscriptionDetailsProps) {
-  const [showDetails, setShowDetails] = useState(false);
+  const [showDetails, setShowDetails] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
   const [openMemberMenu, setOpenMemberMenu] = useState<string | null>(null);
   const [loadedMembers, setLoadedMembers] = useState<Member[]>([]);
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
-  const [renewalHistory, setRenewalHistory] = useState<any[]>([]);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [isOwner, setIsOwner] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   
   // Edit form states
   const [editName, setEditName] = useState(subscription?.name || '');
@@ -152,6 +50,13 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLogo
   const [editPassword, setEditPassword] = useState(subscription?.subscription_password || '');
   const [editMembers, setEditMembers] = useState<Member[]>([]);
   const [newMemberEmail, setNewMemberEmail] = useState('');
+  
+  // Payment states
+  const [pendingPayments, setPendingPayments] = useState<any[]>([]);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [selectedMemberPayment, setSelectedMemberPayment] = useState<any>(null);
 
   // Cargar miembros reales desde la base de datos
   useEffect(() => {
@@ -161,6 +66,26 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLogo
         const members = await getSubscriptionMembers(subscription.id);
         setLoadedMembers(members);
         setEditMembers(members);
+        
+        // Luego cargar los pagos pendientes para actualizar el status
+        const payments = await getSubscriptionPendingPayments(subscription.id);
+        setPendingPayments(payments || []);
+        
+        // Actualizar el status de los miembros basado en los pagos pendientes
+        const pendingMemberIds = payments.map(p => {
+          // Extraer el member ID del pago pendiente
+          // El ID es "pending-{memberId}"
+          return p.id.replace('pending-', '');
+        });
+
+        // Actualizar el estado de los miembros
+        const updatedMembers = members.map(member => ({
+          ...member,
+          status: pendingMemberIds.includes(member.memberId) ? 'pending' : 'paid'
+        }));
+        
+        setLoadedMembers(updatedMembers);
+        setEditMembers(updatedMembers);
       } catch (error) {
         console.error('Error cargando miembros:', error);
         setLoadedMembers([]);
@@ -172,75 +97,93 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLogo
     loadMembers();
   }, [subscription.id]);
 
-  // Cargar historial de renovaciones desde la base de datos
+  // Cargar pagos pendientes de la suscripción
   useEffect(() => {
-    const loadRenewalHistory = async () => {
+    const loadPayments = async () => {
       try {
-        setIsLoadingHistory(true);
-        const payments = await getSubscriptionPayments(subscription.id);
-        
-        // Agrupar pagos por período (agrupado por mes de pago)
-        const grouped: { [key: string]: any } = {};
-        
-        payments.forEach((payment: any) => {
-          const paymentDate = new Date(payment.date);
-          const month = paymentDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
-          
-          if (!grouped[month]) {
-            grouped[month] = {
-              id: month,
-              date: payment.date,
-              period: month,
-              payments: [],
-              totalAmount: 0,
-              status: 'completed'
-            };
-          }
-          
-          grouped[month].payments.push({
-            memberId: payment.member,
-            memberName: payment.member,
-            amount: payment.amount,
-            status: payment.status === 'completed' ? 'paid' : 'pending',
-            paidDate: new Date(payment.date).toLocaleDateString('en-US', { 
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric'
-            })
-          });
-          
-          grouped[month].totalAmount += payment.amount;
-          if (payment.status !== 'completed') {
-            grouped[month].status = 'pending';
-          }
-        });
-        
-        setRenewalHistory(Object.values(grouped).sort((a, b) => 
-          new Date(b.date).getTime() - new Date(a.date).getTime()
-        ));
+        const payments = await getSubscriptionPendingPayments(subscription.id);
+        setPendingPayments(payments || []);
       } catch (error) {
-        console.error('Error cargando historial de renovaciones:', error);
-        setRenewalHistory([]);
-      } finally {
-        setIsLoadingHistory(false);
+        console.error('Error cargando pagos pendientes:', error);
+        setPendingPayments([]);
       }
     };
 
-    loadRenewalHistory();
+    loadPayments();
   }, [subscription.id]);
 
-  const handleSaveChanges = () => {
-    // Aquí iría la lógica para guardar los cambios
-    console.log('Saving changes:', {
-      name: editName,
-      price: editPrice,
-      billingCycle: editBillingCycle,
-      nextPayment: editNextPayment,
-      email: editEmail,
-      password: editPassword,
-      members: editMembers
-    });
-    setIsEditMode(false);
+  // Verificar si el usuario actual es el dueño
+  useEffect(() => {
+    const checkOwner = async () => {
+      try {
+        const currentUser = await getCurrentUser();
+        if (currentUser) {
+          const owner = await isSubscriptionOwner(subscription.id, currentUser.id);
+          setIsOwner(owner);
+        }
+      } catch (error) {
+        console.error('Error verificando si es dueño:', error);
+        setIsOwner(false);
+      }
+    };
+
+    checkOwner();
+  }, [subscription.id]);
+
+  const handleSaveChanges = async () => {
+    try {
+      setIsSaving(true);
+
+      // Obtener usuario actual
+      const currentUser = await getCurrentUser();
+      if (!currentUser) {
+        alert(language === 'es' ? 'Usuario no autenticado' : 'User not authenticated');
+        return;
+      }
+
+      // Verificar que es el dueño
+      const isOwner = await isSubscriptionOwner(subscription.id, currentUser.id);
+      if (!isOwner) {
+        alert(language === 'es' ? 'Solo el dueño puede editar esta suscripción' : 'Only the owner can edit this subscription');
+        return;
+      }
+
+      // Convertir la fecha al formato YYYY-MM-DD si es necesario
+      let nextRenewalDate = editNextPayment;
+      if (editNextPayment) {
+        // Si viene en formato dd/mm/aaaa, convertir a yyyy-mm-dd
+        if (editNextPayment.includes('/')) {
+          const parts = editNextPayment.split('/');
+          if (parts.length === 3) {
+            nextRenewalDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+          }
+        }
+      }
+
+      // Actualizar la suscripción en la BD
+      const success = await updateSubscription(subscription.id, {
+        name: editName,
+        price: parseFloat(editPrice),
+        billing_cycle: editBillingCycle === 'monthly' ? 'month' : 'year',
+        next_renewal: nextRenewalDate,
+        subscription_email: editEmail,
+        subscription_password: editPassword
+      });
+
+      if (success) {
+        alert(language === 'es' ? 'Suscripción actualizada exitosamente' : 'Subscription updated successfully');
+        setIsEditMode(false);
+        // Recargar la página para mostrar los cambios
+        window.location.reload();
+      } else {
+        alert(language === 'es' ? 'Error al actualizar la suscripción' : 'Error updating subscription');
+      }
+    } catch (error) {
+      console.error('Error en handleSaveChanges:', error);
+      alert(language === 'es' ? 'Error al guardar los cambios' : 'Error saving changes');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -257,6 +200,62 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLogo
     setEditPassword(subscription?.subscription_password || '');
     setEditMembers(loadedMembers);
     setIsEditMode(false);
+  };
+
+  const handleConfirmPayment = async () => {
+    if (!selectedPaymentMethod) {
+      alert('Por favor selecciona un método de pago');
+      return;
+    }
+
+    try {
+      setIsProcessingPayment(true);
+      const currentUser = await getCurrentUser();
+      if (!currentUser) {
+        alert('Usuario no autenticado');
+        return;
+      }
+
+      // Usar el monto del miembro si está haciendo pago como miembro, sino usar el total
+      const amount = selectedMemberPayment ? selectedMemberPayment.amount : subscription.price;
+
+      // Registrar el pago
+      const paymentId = await registerPayment(
+        currentUser.id,
+        subscription.id,
+        amount,
+        selectedPaymentMethod
+      );
+
+      if (paymentId) {
+        alert('Pago registrado exitosamente');
+        setShowPaymentModal(false);
+        setSelectedPaymentMethod('');
+        
+        // Actualizar el estado del miembro que acaba de pagar
+        const updatedMembers = loadedMembers.map(member => {
+          if (selectedMemberPayment && member.memberId === selectedMemberPayment.memberId) {
+            return { ...member, status: 'paid' as const };
+          }
+          return member;
+        });
+        
+        setLoadedMembers(updatedMembers);
+        setEditMembers(updatedMembers);
+        setSelectedMemberPayment(null);
+        
+        // Recargar los pagos pendientes para mantener sincronizado
+        const payments = await getSubscriptionPendingPayments(subscription.id);
+        setPendingPayments(payments || []);
+      } else {
+        alert('Error al registrar el pago');
+      }
+    } catch (error) {
+      console.error('Error procesando pago:', error);
+      alert('Error al procesar el pago');
+    } finally {
+      setIsProcessingPayment(false);
+    }
   };
 
   const handleAddMember = () => {
@@ -317,8 +316,16 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLogo
         <div className="bg-white rounded-lg border border-gray-200 p-8 mb-6">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center">
-                <div className="text-red-600 text-2xl font-bold">{subscription.logo?.toUpperCase() || 'SUB'}</div>
+              <div className="w-24 h-24 bg-white rounded-lg flex items-center justify-center overflow-hidden border border-gray-200">
+                {getSubscriptionLogo(subscription.name) ? (
+                  <img 
+                    src={getSubscriptionLogo(subscription.name)} 
+                    alt={subscription.name}
+                    className="w-full h-full object-contain p-2"
+                  />
+                ) : (
+                  <div className="text-gray-900 text-4xl font-bold">{subscription.name.charAt(0).toUpperCase()}</div>
+                )}
               </div>
               <div>
                 <h1 className="text-2xl font-semibold text-gray-900 mb-1">{subscription.name}</h1>
@@ -333,14 +340,15 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLogo
             </div>
 
             <div className="flex gap-3">
-              <button 
-                onClick={() => setIsEditMode(true)}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
-              >
-                <Edit className="w-4 h-4" />
-                Edit Plan
-              </button>
-              
+              {isOwner && (
+                <button 
+                  onClick={() => setIsEditMode(true)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+                >
+                  <Edit className="w-4 h-4" />
+                  Edit Plan
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -353,8 +361,8 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLogo
               <span className="text-sm">Next Renewal</span>
             </div>
             <div className="text-2xl font-semibold text-gray-900">
-              {subscription.next_renewal 
-                ? new Date(subscription.next_renewal).toLocaleDateString('en-US', {
+              {subscription.nextRenewal 
+                ? new Date(subscription.nextRenewal).toLocaleDateString('en-US', {
                     year: 'numeric',
                     month: 'short',
                     day: 'numeric'
@@ -370,7 +378,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLogo
               <span className="text-sm">Payment Method</span>
             </div>
             <div className="text-2xl font-semibold text-gray-900">
-              {subscription.is_active ? 'Auto-renewal' : 'Inactive'}
+              {subscription.payment_method || 'Auto-renewal'}
             </div>
           </div>
 
@@ -388,7 +396,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLogo
         {/* Shared Account Credentials */}
         <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Shared Account Credentials</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Credenciales de Cuenta Compartida</h2>
             <button 
               onClick={() => setShowDetails(!showDetails)}
               className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
@@ -396,12 +404,12 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLogo
               {showDetails ? (
                 <>
                   <EyeOff className="w-4 h-4" />
-                  Hide Details
+                  Ocultar Detalles
                 </>
               ) : (
                 <>
                   <Eye className="w-4 h-4" />
-                  Show Details
+                  Mostrar Detalles
                 </>
               )}
             </button>
@@ -409,18 +417,18 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLogo
 
           {!showDetails ? (
             <div className="text-sm text-gray-500 text-center py-8">
-              Click "Show Details" to view the shared account credentials
+              Haz clic en "Mostrar Detalles" para ver las credenciales de la cuenta compartida
             </div>
           ) : (
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email
+                  Correo
                 </label>
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
-                    value={subscription.subscription_email || 'No email provided'}
+                    value={subscription.subscription_email || 'No se proporcionó correo'}
                     readOnly
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 font-mono text-sm"
                   />
@@ -434,19 +442,19 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLogo
                     disabled={!subscription.subscription_email}
                   >
                     <Copy className="w-4 h-4" />
-                    Copy
+                    Copiar
                   </button>
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Password
+                  Contraseña
                 </label>
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
-                    value={subscription.subscription_password || 'No password provided'}
+                    value={subscription.subscription_password || 'No se proporcionó contraseña'}
                     readOnly
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 font-mono text-sm"
                   />
@@ -460,7 +468,7 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLogo
                     disabled={!subscription.subscription_password}
                   >
                     <Copy className="w-4 h-4" />
-                    Copy
+                    Copiar
                   </button>
                 </div>
               </div>
@@ -468,12 +476,114 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLogo
               <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-2">
                 <Info className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
                 <div className="text-sm text-yellow-800">
-                  <strong>Important:</strong> Keep these credentials private and only share with authorized family members.
+                  <strong>Importante:</strong> Mantén estas credenciales privadas y solo comparte con miembros de la familia autorizados.
                 </div>
               </div>
             </div>
           )}
         </div>
+
+        {/* Pending Payments */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-semibold text-gray-900">Pagos Pendientes</h2>
+            <span className="text-sm text-gray-500">
+              {pendingPayments.length} pago{pendingPayments.length !== 1 ? 's' : ''} pendiente{pendingPayments.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+
+          {pendingPayments.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <CreditCard className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p>No hay pagos pendientes</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {pendingPayments.map((payment) => (
+                <div key={payment.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-900">{payment.subscription}</p>
+                    <p className="text-sm text-gray-600">€{payment.amount.toFixed(2)}</p>
+                  </div>
+                  <button
+                    onClick={() => setShowPaymentModal(true)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                  >
+                    Pagar
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Payment Modal */}
+        {showPaymentModal && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+              <div className="p-6 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">Registrar Pago</h3>
+              </div>
+              <div className="p-6">
+                <div className="mb-6">
+                  <p className="text-sm text-gray-600 mb-2">Suscripción</p>
+                  <p className="text-lg font-semibold text-gray-900">{subscription.name}</p>
+                </div>
+
+                {selectedMemberPayment && (
+                  <div className="mb-6">
+                    <p className="text-sm text-gray-600 mb-2">Miembro</p>
+                    <p className="text-lg font-semibold text-gray-900">{selectedMemberPayment.name}</p>
+                  </div>
+                )}
+
+                <div className="mb-6">
+                  <p className="text-sm text-gray-600 mb-2">Cantidad</p>
+                  <p className="text-2xl font-bold text-blue-600">€{selectedMemberPayment ? selectedMemberPayment.amount.toFixed(2) : subscription.price.toFixed(2)}</p>
+                </div>
+
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-3">Método de Pago</label>
+                  <div className="space-y-2">
+                    {['Efectivo / Transferencia', 'Tarjeta de Crédito', 'Tarjeta de Débito', 'PayPal', 'Otro'].map((method) => (
+                      <label key={method} className="flex items-center">
+                        <input
+                          type="radio"
+                          name="payment-method"
+                          value={method}
+                          checked={selectedPaymentMethod === method}
+                          onChange={(e) => setSelectedPaymentMethod(e.target.value)}
+                          className="rounded-full"
+                        />
+                        <span className="ml-3 text-sm text-gray-700">{method}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowPaymentModal(false);
+                      setSelectedPaymentMethod('');
+                      setSelectedMemberPayment(null);
+                    }}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium text-gray-900"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleConfirmPayment}
+                    disabled={isProcessingPayment || !selectedPaymentMethod}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  >
+                    {isProcessingPayment ? 'Procesando...' : 'Confirmar Pago'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Family Members */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">
@@ -530,22 +640,28 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLogo
                       <td className="px-6 py-4">
                         {member.status === 'paid' && (
                           <span className="px-3 py-1 bg-green-100 text-green-700 text-sm font-medium rounded-full">
-                            Paid
+                            Pagado
                           </span>
                         )}
                         {member.status === 'pending' && (
-                          <span className="px-3 py-1 bg-yellow-100 text-yellow-700 text-sm font-medium rounded-full">
-                            Pending
+                          <span className="px-3 py-1 bg-red-100 text-red-700 text-sm font-medium rounded-full">
+                            No pagado
                           </span>
                         )}
                       </td>
                       <td className="px-6 py-4">
-                        {member.status === 'pending' ? (
-                          <button className="flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm font-medium">
-                            <Send className="w-4 h-4" />
-                            Send Reminder
+                        {member.status === 'pending' && (
+                          <button
+                            onClick={() => {
+                              setSelectedMemberPayment(member);
+                              setShowPaymentModal(true);
+                            }}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                          >
+                            Pagar
                           </button>
-                        ) : (
+                        )}
+                        {member.status === 'paid' && (
                           <div className="relative">
                             <button 
                               onClick={() => setOpenMemberMenu(openMemberMenu === member.id ? null : member.id)}
@@ -574,71 +690,6 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLogo
                   ))}
                 </tbody>
               </table>
-            </div>
-          )}
-        </div>
-
-        {/* Renewal History */}
-        <div className="mt-6 bg-white rounded-lg border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-6">Renewal History</h2>
-          
-          {isLoadingHistory ? (
-            <div className="text-center py-8 text-gray-500">Loading renewal history...</div>
-          ) : renewalHistory.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">No renewal history available</div>
-          ) : (
-            <div className="space-y-4">
-              {renewalHistory.map((renewal) => (
-                <div key={renewal.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <div className="font-semibold text-gray-900">{renewal.period}</div>
-                      <div className="text-sm text-gray-500">Renewed on {new Date(renewal.date).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}</div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="text-right">
-                        <div className="text-lg font-semibold text-gray-900">€{renewal.totalAmount.toFixed(2)}</div>
-                      </div>
-                      {renewal.status === 'completed' ? (
-                        <span className="px-3 py-1 bg-green-100 text-green-700 text-sm font-medium rounded-full">
-                          Completed
-                        </span>
-                      ) : (
-                        <span className="px-3 py-1 bg-yellow-100 text-yellow-700 text-sm font-medium rounded-full">
-                          Pending
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Payment Details */}
-                  <div className="mt-4 bg-gray-50 rounded-lg p-4">
-                    <div className="text-sm font-medium text-gray-700 mb-3">Payment Details</div>
-                    <div className="space-y-2">
-                      {renewal.payments.map((payment: any, idx: number) => (
-                        <div key={idx} className="flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${payment.status === 'paid' ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
-                            <span className="text-gray-700">{payment.memberName}</span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className="font-medium text-gray-900">€{payment.amount.toFixed(2)}</span>
-                            {payment.status === 'paid' ? (
-                              <span className="text-green-600 text-xs">{payment.paidDate}</span>
-                            ) : (
-                              <span className="text-yellow-600 text-xs font-medium">Pending</span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ))}
             </div>
           )}
         </div>
@@ -935,10 +986,11 @@ export function SubscriptionDetails({ subscription, onNavigate, language, onLogo
 
                   <button
                     onClick={handleSaveChanges}
-                    className="w-full bg-white text-blue-600 font-semibold py-3 px-4 rounded-lg hover:bg-blue-50 transition-colors mb-3 flex items-center justify-center gap-2"
+                    disabled={isSaving}
+                    className={`w-full ${isSaving ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-white text-blue-600 hover:bg-blue-50'} font-semibold py-3 px-4 rounded-lg transition-colors mb-3 flex items-center justify-center gap-2`}
                   >
                     <Save className="w-4 h-4" />
-                    Save Changes
+                    {isSaving ? (language === 'es' ? 'Guardando...' : 'Saving...') : (language === 'es' ? 'Guardar Cambios' : 'Save Changes')}
                   </button>
 
                   <button 

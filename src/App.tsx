@@ -22,9 +22,19 @@ export interface Subscription {
   members: Member[];
   billingProgress: number;
   nextRenewal?: string;
+  payment_method?: string;
   paymentMethod?: string;
   totalMembers?: number;
   isActive?: boolean;
+  is_active?: boolean;
+  ownerId?: string;
+  owner_id?: string;
+  createdAt?: string;
+  created_at?: string;
+  updatedAt?: string;
+  updated_at?: string;
+  subscription_email?: string;
+  subscription_password?: string;
 }
 
 export interface Member {

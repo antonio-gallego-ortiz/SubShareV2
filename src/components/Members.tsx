@@ -356,11 +356,9 @@ export function Members({ onNavigate, language }: MembersProps) {
                   <tr key={member.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <img
-                          src={member.avatar}
-                          alt={member.name}
-                          className="w-10 h-10 rounded-full"
-                        />
+                        <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold text-sm">
+                          {member.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                        </div>
                         <div>
                           <div className="font-medium text-gray-900">{member.name}</div>
                           <div className="text-sm text-gray-500">{member.email}</div>

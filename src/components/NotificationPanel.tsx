@@ -165,8 +165,8 @@ export function NotificationPanel({ onNavigate }: NotificationPanelProps) {
       {isOpen && (
         <div ref={panelRef} className="absolute right-0 top-full mt-2 w-96 bg-white rounded-lg shadow-2xl border border-gray-200 z-50 max-h-96 overflow-y-auto">
           <div className="p-4 border-b border-gray-200">
-            <h3 className="font-semibold text-gray-900">Notifications</h3>
-            <p className="text-xs text-gray-500 mt-1">{invitations.length} {invitations.length === 1 ? 'new' : 'new'}</p>
+            <h3 className="font-semibold text-gray-900">Notificaciones</h3>
+            <p className="text-xs text-gray-500 mt-1">{invitations.length} {invitations.length === 1 ? 'nueva' : 'nuevas'}</p>
           </div>
 
           {isLoading ? (
@@ -176,8 +176,8 @@ export function NotificationPanel({ onNavigate }: NotificationPanelProps) {
           ) : invitations.length === 0 ? (
             <div className="p-8 text-center">
               <AlertCircle className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-              <p className="text-gray-900 font-medium">No notifications</p>
-              <p className="text-gray-600 text-sm">You're all caught up!</p>
+              <p className="text-gray-900 font-medium">Sin notificaciones</p>
+              <p className="text-gray-600 text-sm">¡Ya estás al día!</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-200">

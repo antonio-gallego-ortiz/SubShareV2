@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, Bell, Save, User, Lock, CreditCard as CreditCardIcon, Globe, Shield, Mail, Smartphone, LogOut, Eye, AlertTriangle } from 'lucide-react';
+import { Search, Bell, Save, User, Lock, CreditCard as CreditCardIcon, Globe, Shield, Mail, Smartphone, LogOut, AlertTriangle } from 'lucide-react';
 import type { View } from '../App';
 import { NotificationPanel } from './NotificationPanel';
 import { Sidebar } from './Sidebar';
@@ -151,10 +151,6 @@ export function Settings({ onNavigate, language, onLogout }: SettingsProps) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [showAddCardModal, setShowAddCardModal] = useState(false);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [verifyPassword, setVerifyPassword] = useState('');
-  const [showActualPassword, setShowActualPassword] = useState(false);
-  const [actualPassword, setActualPassword] = useState('MySecurePass123');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -237,46 +233,27 @@ export function Settings({ onNavigate, language, onLogout }: SettingsProps) {
       <Sidebar currentView="settings" onNavigate={onNavigate} onLogout={onLogout} />
       <div className="flex-1 overflow-auto">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-8">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
-                  S
-                </div>
-                <div>
-                  <div className="font-semibold text-gray-900">SubShare</div>
-                  
-                </div>
-              </div>
+      <div className="border-t border-gray-200 bg-white px-8 py-4">
+        <div className="flex items-center justify-end gap-4">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder={t.search}
+              className="pl-4 pr-4 py-2 border border-gray-200 rounded-lg bg-gray-50 w-64 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <NotificationPanel onNavigate={onNavigate} />
+          <div 
+            onClick={() => onNavigate('settings')}
+            className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-lg px-2 py-1 transition-colors"
+          >
+            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium">
+              {userInitials}
             </div>
-
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder={t.search}
-                  className="pl-4 pr-4 py-2 border border-gray-200 rounded-lg bg-gray-50 w-64 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              
-              <NotificationPanel onNavigate={onNavigate} />
-              <div 
-                onClick={() => onNavigate('settings')}
-                className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-lg px-2 py-1 transition-colors"
-              >
-                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                  {userInitials}
-                </div>
-                <span className="text-sm font-medium text-gray-700">{fullName}</span>
-              </div>
-            </div>
+            <span className="text-sm font-medium text-gray-700">{fullName}</span>
           </div>
         </div>
       </div>
-
-      
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 py-8">
@@ -285,10 +262,6 @@ export function Settings({ onNavigate, language, onLogout }: SettingsProps) {
             <h1 className="text-2xl font-semibold text-gray-900 mb-1">{t.title}</h1>
             <p className="text-gray-600">{t.subtitle}</p>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-            <Save className="w-4 h-4" />
-            {t.saveChanges}
-          </button>
         </div>
 
         <div className="grid grid-cols-4 gap-6">
@@ -342,18 +315,12 @@ export function Settings({ onNavigate, language, onLogout }: SettingsProps) {
                 <h2 className="text-lg font-semibold text-gray-900 mb-6">{t.profile}</h2>
                 
                 <div className="flex items-center gap-6 mb-6 pb-6 border-b border-gray-200">
-                  {profilePhoto ? (
-                    <img
-                      src={profilePhoto}
-                      alt={fullName || "Profile"}
-                      className="w-20 h-20 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-20 h-20 rounded-full bg-blue-600 flex items-center justify-center text-white text-2xl font-bold">
-                      {userInitials}
-                    </div>
-                  )}
-                  <div>
+                  <div className="w-20 h-20 rounded-full bg-blue-600 flex items-center justify-center text-white text-4xl font-bold">
+                    {userInitials}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">{fullName} <span className="text-gray-500 text-sm">({userInitials})</span></h3>
+                    <p className="text-sm text-gray-600 mb-4">{email}</p>
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -361,18 +328,6 @@ export function Settings({ onNavigate, language, onLogout }: SettingsProps) {
                       onChange={handlePhotoChange}
                       className="hidden"
                     />
-                    <button 
-                      onClick={handleChangePhotoClick}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium mr-3"
-                    >
-                      {t.changePhoto}
-                    </button>
-                    <button 
-                      onClick={handleRemovePhoto}
-                      className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium"
-                    >
-                      {t.remove}
-                    </button>
                   </div>
                 </div>
 
@@ -429,40 +384,6 @@ export function Settings({ onNavigate, language, onLogout }: SettingsProps) {
 
             {activeTab === 'security' && (
               <div className="space-y-6">
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-6">Password</h2>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">{t.currentPassword}</label>
-                      <input
-                        type="password"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">{t.newPassword}</label>
-                      <input
-                        type="password"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">{t.confirmPassword}</label>
-                      <input
-                        type="password"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <button 
-                      onClick={() => setShowPasswordModal(true)}
-                      className="mt-4 w-full px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-medium flex items-center justify-center gap-2"
-                    >
-                      <Eye className="w-4 h-4" />
-                      {t.viewPassword}
-                    </button>
-                  </div>
-                </div>
-
                 <div className="bg-white rounded-xl border border-gray-200 p-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -716,74 +637,6 @@ export function Settings({ onNavigate, language, onLogout }: SettingsProps) {
         </div>
       )}
 
-      {/* View Password Modal */}
-      {showPasswordModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl">
-            <h3 className="text-xl font-semibold text-gray-900 mb-3">{t.verifyPasswordTitle}</h3>
-            <p className="text-sm text-gray-600 mb-4">{t.verifyPasswordMessage}</p>
-            
-            {!showActualPassword ? (
-              <>
-                <div className="mb-6">
-                  <input
-                    type="password"
-                    value={verifyPassword}
-                    onChange={(e) => setVerifyPassword(e.target.value)}
-                    placeholder={t.enterPassword}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="flex items-center gap-3 justify-end">
-                  <button 
-                    className="px-5 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium" 
-                    onClick={() => {
-                      setShowPasswordModal(false);
-                      setVerifyPassword('');
-                      setShowActualPassword(false);
-                    }}
-                  >
-                    {t.cancel}
-                  </button>
-                  <button 
-                    className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                    onClick={() => {
-                      // Simulamos que la contraseña correcta es "password123"
-                      if (verifyPassword === 'password123') {
-                        setShowActualPassword(true);
-                        setVerifyPassword('');
-                      } else {
-                        alert(t.incorrectPassword);
-                      }
-                    }}
-                  >
-                    {t.verify}
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <div className="text-sm text-gray-600 mb-2">{t.yourPassword}</div>
-                  <div className="text-lg font-semibold text-gray-900 font-mono">{actualPassword}</div>
-                </div>
-                <div className="flex items-center gap-3 justify-end">
-                  <button 
-                    className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium" 
-                    onClick={() => {
-                      setShowPasswordModal(false);
-                      setShowActualPassword(false);
-                      setVerifyPassword('');
-                    }}
-                  >
-                    {t.confirm}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
       </div>
     </div>
   );
