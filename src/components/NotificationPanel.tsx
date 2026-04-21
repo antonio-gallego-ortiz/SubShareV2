@@ -202,30 +202,7 @@ export function NotificationPanel({ onNavigate }: NotificationPanelProps) {
                         </p>
                       </div>
                       <div className="flex gap-2 ml-2 flex-shrink-0">
-                        <button
-                          onClick={() => handleAcceptInvitation(inv.id)}
-                          disabled={accepting === inv.id}
-                          className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors disabled:opacity-50"
-                          title="Accept"
-                        >
-                          {accepting === inv.id ? (
-                            <Loader className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <ThumbsUp className="w-4 h-4" />
-                          )}
-                        </button>
-                        <button
-                          onClick={() => handleDeclineInvitation(inv.id)}
-                          disabled={declining === inv.id}
-                          className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
-                          title="Decline"
-                        >
-                          {declining === inv.id ? (
-                            <Loader className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <ThumbsDown className="w-4 h-4" />
-                          )}
-                        </button>
+                        
                       </div>
                     </div>
                   ))}
