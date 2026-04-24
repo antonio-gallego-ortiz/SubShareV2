@@ -6,6 +6,7 @@ import { NotificationPanel } from './NotificationPanel';
 import { Sidebar } from './Sidebar';
 import { getCurrentUserProfile, getCurrentUserName, getUserInitials, getCurrentUser } from '../lib/userService';
 import { getUserPayments, getPendingPayments, registerPayment } from '../lib/paymentService';
+import type { Payment } from '../lib/paymentService';
 import { getUserSubscriptions } from '../lib/subscriptionService';
 
 interface PaymentsProps {
@@ -187,9 +188,7 @@ export function Payments({ onNavigate, language, onLogout }: PaymentsProps) {
     try {
       // Cargar suscripciones activas del usuario
       const userSubs = await getUserSubscriptions();
-      const activeSubsList = userSubs.filter(
-        (s: any) => s.subscription?.is_active || s.subscription?.isActive
-      );
+      const activeSubsList = userSubs.filter((s: any) => s.isActive === true);
       setSubscriptions(activeSubsList);
 
       // Cargar pagos del usuario desde la BD
@@ -203,8 +202,8 @@ export function Payments({ onNavigate, language, onLogout }: PaymentsProps) {
       // Crear un pago pendiente SOLO para suscripciones que NO tienen un pago completado recientemente
       const subPayments: { [key: string]: Payment } = {};
       activeSubsList.forEach((sub: any) => {
-        const subId = sub.subscription_id;
-        const subData = sub.subscription;
+        const subId = sub.id;
+        const subData = sub;
         
         // Verificar si esta suscripción tiene un pago completado
         const hasRecentPayment = userPayments.some(
@@ -271,7 +270,7 @@ export function Payments({ onNavigate, language, onLogout }: PaymentsProps) {
     };
 
     loadPaymentsData();
-  }, [userName]);
+  }, []);
 
   const handleOpenPaymentModal = (payment: Transaction | Payment | null, isSubscription: boolean = false) => {
     if (isSubscription && payment) {
@@ -411,9 +410,7 @@ export function Payments({ onNavigate, language, onLogout }: PaymentsProps) {
   const pendingCount = pendingPayments.length;
   const pendingAmount = pendingPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
   const upcomingBills = subscriptions.length;
-  const activeSubscriptionsCount = subscriptions.filter(
-    (s: any) => s.subscription?.is_active || s.subscription?.isActive
-  ).length;
+  const activeSubscriptionsCount = subscriptions.filter((s: any) => s.isActive === true).length;
 
   return (
     <div className="flex min-h-screen bg-gray-50">

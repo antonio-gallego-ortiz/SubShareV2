@@ -48,7 +48,7 @@ export function Sidebar({ currentView, onNavigate, onLogout }: SidebarProps) {
   return (
     <div className="w-56 bg-white flex flex-col">
       <div className="-mt-4 pb-4 pr-4 pl-2 cursor-pointer hover:opacity-80 transition-opacity flex justify-center" onClick={() => onNavigate('dashboard')}>
-        <img src="/11.svg" alt="SubShare" className="h-36 object-contain" />
+        <img src={`${import.meta.env.BASE_URL}11.svg`} alt="SubShare" className="h-36 object-contain" />
       </div>
 
       <nav className="flex-1 p-4">

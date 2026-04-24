@@ -113,7 +113,7 @@ export function Login({ onLogin, onShowRegister, language }: LoginProps) {
         {/* Logo and Title */}
         <div className="text-center mb-8">
           <img
-            src="/11.svg"
+            src={`${import.meta.env.BASE_URL}11.svg`}
             alt="SubShare Logo"
             className="w-48 mx-auto"
           />

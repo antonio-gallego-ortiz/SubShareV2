@@ -167,23 +167,33 @@ export async function acceptInvitation(
     const costPerPerson = subscription.price / subscription.total_members;
     console.log('Costo por persona calculado:', costPerPerson);
 
-    // Agregar usuario a subscription_members
-    const { data: memberData, error: memberError } = await supabase
+    // Verificar si el usuario ya es miembro para evitar duplicados
+    const { data: existingMember } = await supabase
       .from('subscription_members')
-      .insert({
-        subscription_id: subscriptionId,
-        user_id: userId,
-        amount: costPerPerson,
-        is_owner: false,
-      })
-      .select();
+      .select('id')
+      .eq('subscription_id', subscriptionId)
+      .eq('user_id', userId)
+      .maybeSingle();
 
-    if (memberError) {
-      console.error('Error agregando miembro a subscription_members:', memberError);
-      return false;
+    if (!existingMember) {
+      const { data: memberData, error: memberError } = await supabase
+        .from('subscription_members')
+        .insert({
+          subscription_id: subscriptionId,
+          user_id: userId,
+          amount: costPerPerson,
+          is_owner: false,
+        })
+        .select();
+
+      if (memberError) {
+        console.error('Error agregando miembro a subscription_members:', memberError);
+        return false;
+      }
+      console.log('Usuario agregado a subscription_members:', memberData);
+    } else {
+      console.log('Usuario ya era miembro, saltando inserción duplicada');
     }
-    
-    console.log('Usuario agregado a subscription_members:', memberData);
 
     // Actualizar estado de invitación a 'accepted'
     const { error: updateError } = await supabase

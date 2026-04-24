@@ -252,26 +252,33 @@ export async function getUserSubscriptions(userId?: string) {
       return [];
     }
 
-    // Mapear datos a formato esperado
-    const formattedData = (data || []).map((item: any) => ({
-      id: item.subscription_id,
-      name: item.name,
-      logo: item.logo,
-      price: item.price,
-      billingCycle: item.billing_cycle,
-      nextRenewal: item.next_renewal,
-      ownerId: item.owner_id,
-      isActive: item.is_active,
-      createdAt: item.created_at,
-      updatedAt: item.updated_at,
-      totalMembers: item.total_members,
-      payment_method: item.payment_method,
-      subscription_email: item.subscription_email,
-      subscription_password: item.subscription_password,
-      yourShare: item.amount,
-      isOwner: item.is_owner,
-      members: [],
-    }));
+    // Mapear datos a formato esperado y deduplicar por subscription_id
+    const seen = new Set<string>();
+    const formattedData = (data || [])
+      .filter((item: any) => {
+        if (seen.has(item.subscription_id)) return false;
+        seen.add(item.subscription_id);
+        return true;
+      })
+      .map((item: any) => ({
+        id: item.subscription_id,
+        name: item.name,
+        logo: item.logo,
+        price: item.price,
+        billingCycle: item.billing_cycle,
+        nextRenewal: item.next_renewal,
+        ownerId: item.owner_id,
+        isActive: item.is_active,
+        createdAt: item.created_at,
+        updatedAt: item.updated_at,
+        totalMembers: item.total_members,
+        payment_method: item.payment_method,
+        subscription_email: item.subscription_email,
+        subscription_password: item.subscription_password,
+        yourShare: item.amount,
+        isOwner: item.is_owner,
+        members: [],
+      }));
 
     return formattedData;
   } catch (error) {
